@@ -7,8 +7,10 @@ from typing import Type
 from urllib.parse import parse_qs, urlparse
 
 from extractors.base import BaseExtractor
+from extractors.ashby import AshbyExtractor
 from extractors.greenhouse import GreenhouseExtractor
 from extractors.lever import LeverExtractor
+from extractors.workday import WorkdayExtractor
 from models import JobListing
 
 
@@ -21,10 +23,12 @@ class AtsRoute:
     provider: str
     board_token: str
     extractor_class: Type[BaseExtractor]
+    source_url: str
 
 
 class AtsRouter:
-    def __init__(self) -> None:
+    def __init__(self, *, timeout_seconds: float = 15.0) -> None:
+        self.timeout_seconds = timeout_seconds
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     def route(self, career_url: str) -> AtsRoute:
@@ -34,18 +38,30 @@ class AtsRouter:
 
         if self._is_greenhouse(hostname):
             token = self._greenhouse_token(hostname, path_parts)
-            return AtsRoute("greenhouse", token, GreenhouseExtractor)
+            return AtsRoute("greenhouse", token, GreenhouseExtractor, career_url)
 
         if self._is_lever(hostname):
             token = self._lever_token(hostname, path_parts, parsed.query)
-            return AtsRoute("lever", token, LeverExtractor)
+            return AtsRoute("lever", token, LeverExtractor, career_url)
+
+        if self._is_ashby(hostname):
+            token = self._ashby_token(hostname, path_parts)
+            return AtsRoute("ashby", token, AshbyExtractor, career_url)
+
+        if self._is_workday(hostname):
+            token = self._workday_token(hostname)
+            return AtsRoute("workday", token, WorkdayExtractor, career_url)
 
         raise UnsupportedAtsError(f"Unsupported or unrecognized ATS URL: {career_url}")
 
     def extract(self, career_url: str) -> list[JobListing]:
         route = self.route(career_url)
         self.logger.info("Routing %s to %s board %s", career_url, route.provider, route.board_token)
-        return route.extractor_class(route.board_token).extract()
+        return route.extractor_class(
+            route.board_token,
+            source_url=route.source_url,
+            timeout_seconds=self.timeout_seconds,
+        ).extract()
 
     def _is_greenhouse(self, hostname: str) -> bool:
         return hostname in {"boards.greenhouse.io", "job-boards.greenhouse.io"} or hostname.endswith(
@@ -90,6 +106,33 @@ class AtsRouter:
             return subdomain
 
         raise UnsupportedAtsError("Could not determine Lever board token")
+
+    def _is_ashby(self, hostname: str) -> bool:
+        return hostname in {"jobs.ashbyhq.com", "api.ashbyhq.com"} or hostname.endswith(".ashbyhq.com")
+
+    def _ashby_token(self, hostname: str, path_parts: list[str]) -> str:
+        if hostname == "api.ashbyhq.com":
+            board_index = self._index_after(path_parts, "job-board")
+            if board_index is not None:
+                return path_parts[board_index]
+
+        if path_parts:
+            return path_parts[0]
+
+        subdomain = hostname.removesuffix(".ashbyhq.com")
+        if subdomain and subdomain not in {"jobs", "api"}:
+            return subdomain
+
+        raise UnsupportedAtsError("Could not determine Ashby board token")
+
+    def _is_workday(self, hostname: str) -> bool:
+        return hostname.endswith(".myworkdayjobs.com")
+
+    def _workday_token(self, hostname: str) -> str:
+        token = hostname.split(".", maxsplit=1)[0]
+        if token:
+            return token
+        raise UnsupportedAtsError("Could not determine Workday board token")
 
     def _index_after(self, path_parts: list[str], marker: str) -> int | None:
         try:

@@ -19,65 +19,73 @@ class GreenhouseExtractor(BaseExtractor):
 
         if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
             self.logger.error("Unexpected Greenhouse payload shape for board %s", self.board_token)
-            raise ExtractionError("Unexpected Greenhouse payload schema")
+            raise ExtractionError("Unexpected Greenhouse payload schema", raw_payload=payload)
 
-        company_name = self._company_name(payload)
+        company_name = str(payload.get("name") or self.board_token)
         listings: list[JobListing] = []
 
         for job in payload["jobs"]:
             if not isinstance(job, dict):
-                self.logger.warning("Skipping non-object Greenhouse job on board %s", self.board_token)
-                continue
+                raise ExtractionError("Greenhouse job payload is not an object", raw_payload=job)
 
             try:
-                listings.append(
-                    JobListing(
-                        company_name=company_name,
-                        job_title=self._required_string(job, "title"),
-                        job_url=self._job_url(job),
-                        location=self._location(job),
-                        raw_description=html_to_text(job.get("content")),
-                        ats_provider=self.provider,
-                    )
-                )
-            except (KeyError, TypeError, ValidationError) as exc:
-                self.logger.warning(
-                    "Skipping malformed Greenhouse job on board %s: %s",
+                listings.append(self._map_job(company_name, job))
+            except (KeyError, TypeError, ValidationError, ValueError) as exc:
+                self.logger.error(
+                    "Failed mapping Greenhouse job on board %s",
                     self.board_token,
-                    exc,
+                    exc_info=True,
                 )
+                raise ExtractionError("Malformed Greenhouse job payload", raw_payload=job) from exc
 
+        self.logger.info("Fetched %s Greenhouse jobs", len(listings), extra={"company": company_name})
         return listings
 
-    def _company_name(self, payload: dict[str, Any]) -> str:
-        return str(payload.get("name") or self.board_token)
+    def _map_job(self, company_name: str, job: dict[str, Any]) -> JobListing:
+        job_id = str(job["id"])
+        description_html = str(job.get("content") or "")
 
-    def _job_url(self, job: dict[str, Any]) -> str:
+        return self._build_listing(
+            company_name=company_name,
+            job_title=self._required_string(job, "title"),
+            job_url=self._job_url(job, job_id),
+            ats_job_id=job_id,
+            location=self._locations(job),
+            raw_description=html_to_text(description_html),
+            description_html=description_html or None,
+            employment_type=None,
+            departments=self._departments(job),
+            date_posted=self._parse_datetime(job.get("updated_at")),
+        )
+
+    def _job_url(self, job: dict[str, Any], job_id: str) -> str:
         absolute_url = job.get("absolute_url")
-        if isinstance(absolute_url, str) and absolute_url:
-            return absolute_url
-
-        job_id = job.get("id")
-        if job_id is None:
-            raise KeyError("id")
-
+        if isinstance(absolute_url, str) and absolute_url.strip():
+            return absolute_url.strip()
         return f"https://boards.greenhouse.io/{self.board_token}/jobs/{job_id}"
 
-    def _location(self, job: dict[str, Any]) -> str | list[str]:
+    def _locations(self, job: dict[str, Any]) -> list[str]:
         location = job.get("location")
         if isinstance(location, dict) and location.get("name"):
-            return str(location["name"])
+            return [str(location["name"]).strip()]
 
         offices = job.get("offices")
-        office_names = [
-            str(office["name"])
-            for office in offices or []
-            if isinstance(office, dict) and office.get("name")
-        ]
-        return office_names or "Unspecified"
+        if isinstance(offices, list):
+            return [
+                str(office["name"]).strip()
+                for office in offices
+                if isinstance(office, dict) and office.get("name")
+            ] or ["Unspecified"]
 
-    def _required_string(self, mapping: dict[str, Any], key: str) -> str:
-        value = mapping[key]
-        if not isinstance(value, str) or not value.strip():
-            raise TypeError(f"{key} must be a non-empty string")
-        return value
+        return ["Unspecified"]
+
+    def _departments(self, job: dict[str, Any]) -> list[str]:
+        departments = job.get("departments")
+        if not isinstance(departments, list):
+            return []
+
+        return [
+            str(department["name"]).strip()
+            for department in departments
+            if isinstance(department, dict) and department.get("name")
+        ]

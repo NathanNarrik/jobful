@@ -36,18 +36,57 @@ Your objective as the coding agent is to build Phase 1. You must build a highly 
 Create a `JobListing` Pydantic model containing:
 *   `company_name` (str)
 *   `job_title` (str)
-*   `job_url` (str) - *The direct application link.*
-*   `location` (str | list)
+*   `job_url` (HttpUrl) - *The direct application link.*
+*   `ats_provider` (str) - *"greenhouse", "lever", "ashby", or "workday"*
+*   `ats_job_id` (str) - *Native ATS job identifier for deduplication.*
+*   `location` (list[str])
 *   `raw_description` (str) - *The complete, unformatted job description text.*
-*   `ats_provider` (str) - *e.g., "greenhouse", "lever"*
+*   `description_html` (str | None)
+*   `employment_type` (str | None)
+*   `departments` (list[str])
+*   `date_posted` (datetime | None)
+*   `content_hash` (str) - *SHA-256 of title + company + ATS job ID.*
+*   `extracted_at` (datetime)
 
 ### 3.3 The Target ATS Endpoints
 Start by implementing extractors for:
 1.  **Greenhouse:** API structure -> `https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs?content=true`.
 2.  **Lever:** API structure -> `https://api.lever.co/v0/postings/{board_token}?mode=json`.
+3.  **Ashby:** API structure -> `https://api.ashbyhq.com/posting-api/job-board/{board_token}`.
+4.  **Workday:** API structure -> native CXS endpoints with Playwright browser fallback for blocked pages.
 
 ### 3.4 Implementation Steps
 1.  **Models:** Define `JobListing` in `models.py`.
-2.  **Extractors:** Create a `base_extractor.py` (abstract class), and implement `greenhouse.py` and `lever.py`. Handle API requests and map JSON to the Pydantic model.
+2.  **Extractors:** Create a `base_extractor.py` (abstract class), and implement `greenhouse.py`, `lever.py`, `ashby.py`, and `workday.py`. Handle API requests and map JSON to the Pydantic model.
 3.  **Router:** Create `router.py` to parse URLs, extract the `board_token`, and trigger the right extractor.
 4.  **Resilience:** Implement robust `try/except` blocks for network timeouts and unexpected schemas, utilizing Python's `logging` module.
+
+---
+
+## 4. Running the Phase 1 Puller
+
+Install dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Pull the default seed list and write an analysis artifact:
+
+```bash
+python main.py
+```
+
+The puller writes `outputs/jobful_pull_<timestamp>.json`, containing run metadata, per-source extraction results, validated `JobListing` records, and source-level failures for dead or changed ATS boards.
+
+Pull custom URLs instead:
+
+```bash
+python main.py https://boards.greenhouse.io/airbnb https://jobs.lever.co/Flex -o outputs/custom_pull.json
+```
+
+Pull a newline-delimited URL file and merge it with the default seed list:
+
+```bash
+python main.py --input-file my_sources.txt --include-defaults --workers 12 --timeout 8
+```
