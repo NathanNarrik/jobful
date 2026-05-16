@@ -6,7 +6,18 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_serializer
 
 
-AtsProvider = Literal["greenhouse", "lever", "ashby", "workday", "amazon", "google", "oracle"]
+AtsProvider = Literal[
+    "greenhouse",
+    "lever",
+    "ashby",
+    "workday",
+    "amazon",
+    "google",
+    "apple",
+    "oracle",
+    "talentbrew",
+    "avature",
+]
 
 
 class JobListing(BaseModel):

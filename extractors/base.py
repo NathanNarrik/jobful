@@ -111,6 +111,11 @@ class BaseExtractor(ABC):
                     timeout=self.timeout_seconds,
                 )
 
+                if response.status_code == 200 and self._is_html_response(response):
+                    raise ForbiddenError(
+                        f"{self.provider} API returned HTML instead of JSON",
+                        status_code=response.status_code,
+                    )
                 if response.status_code == 200:
                     return response.json()
                 if response.status_code == 404:
@@ -164,6 +169,12 @@ class BaseExtractor(ABC):
             "Accept": "application/json,text/plain,*/*",
             "User-Agent": random.choice(USER_AGENTS),
         }
+
+    def _is_html_response(self, response: requests.Response) -> bool:
+        content_type = response.headers.get("Content-Type", "").lower()
+        if "html" in content_type:
+            return True
+        return response.text.lstrip().startswith("<")
 
     def _sleep_before_retry(
         self,

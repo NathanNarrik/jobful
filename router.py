@@ -8,11 +8,14 @@ from urllib.parse import parse_qs, urlparse
 
 from extractors.base import BaseExtractor
 from extractors.amazon import AmazonExtractor
+from extractors.apple import AppleExtractor
 from extractors.ashby import AshbyExtractor
+from extractors.avature import AvatureRssExtractor
 from extractors.google import GoogleExtractor
 from extractors.greenhouse import GreenhouseExtractor
 from extractors.lever import LeverExtractor
 from extractors.oracle import OracleExtractor
+from extractors.talentbrew import TalentBrewExtractor
 from extractors.workday import WorkdayExtractor
 from models import JobListing
 
@@ -60,6 +63,15 @@ class AtsRouter:
 
         if self._is_google(hostname, path_parts):
             return AtsRoute("google", "google", GoogleExtractor, career_url)
+
+        if self._is_apple(hostname, path_parts):
+            return AtsRoute("apple", "apple", AppleExtractor, career_url)
+
+        if self._is_talentbrew(hostname, path_parts):
+            return AtsRoute("talentbrew", self._hostname_token(hostname), TalentBrewExtractor, career_url)
+
+        if self._is_avature(hostname, path_parts):
+            return AtsRoute("avature", self._hostname_token(hostname), AvatureRssExtractor, career_url)
 
         if self._is_oracle_recruiting(hostname, path_parts):
             token = self._oracle_token(hostname, path_parts)
@@ -153,6 +165,9 @@ class AtsRouter:
     def _is_google(self, hostname: str, path_parts: list[str]) -> bool:
         return hostname in {"www.google.com", "careers.google.com"} and "careers" in path_parts
 
+    def _is_apple(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname == "jobs.apple.com" and "search" in path_parts
+
     def _is_oracle_recruiting(self, hostname: str, path_parts: list[str]) -> bool:
         return bool(path_parts) and ("careers" in hostname or hostname.endswith(".oraclecloud.com"))
 
@@ -161,6 +176,15 @@ class AtsRouter:
             site_index = self._index_after(path_parts, "sites")
             if site_index is not None:
                 return path_parts[site_index]
+        return hostname.split(".", maxsplit=1)[0]
+
+    def _is_talentbrew(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname in {"careers.blackrock.com", "jobs.citi.com"} and "search-jobs" in path_parts
+
+    def _is_avature(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname == "careers.twosigma.com" and "careers" in path_parts
+
+    def _hostname_token(self, hostname: str) -> str:
         return hostname.split(".", maxsplit=1)[0]
 
     def _index_after(self, path_parts: list[str], marker: str) -> int | None:

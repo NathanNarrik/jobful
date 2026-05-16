@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from pydantic import ValidationError
 
@@ -19,7 +19,12 @@ SITE_NUMBER_RE = re.compile(r"siteNumber=([^&\"']+)")
 class OracleExtractor(BaseExtractor):
     provider = "oracle"
     page_limit = 100
-    max_pages = 30
+    max_pages = 100
+    COMPANY_BY_HOST = {
+        "careers.honeywell.com": "Honeywell",
+        "jpmc.fa.oraclecloud.com": "JPMorgan Chase",
+        "hdpc.fa.us2.oraclecloud.com": "Goldman Sachs",
+    }
 
     def extract(self) -> list[JobListing]:
         if not self.source_url:
@@ -40,6 +45,10 @@ class OracleExtractor(BaseExtractor):
         return listings
 
     def _discover_context(self, source_url: str) -> tuple[str, str]:
+        inferred = self._infer_context_from_url(source_url)
+        if inferred is not None:
+            return inferred
+
         response = self.session.get(source_url, headers=self._headers(), timeout=self.timeout_seconds)
         response.raise_for_status()
         html = response.text
@@ -51,6 +60,18 @@ class OracleExtractor(BaseExtractor):
 
         oracle_base_url = base_match.group(0).split("/hcmRestApi/", maxsplit=1)[0]
         return oracle_base_url, site_match.group(1)
+
+    def _infer_context_from_url(self, source_url: str) -> tuple[str, str] | None:
+        parsed = urlparse(source_url)
+        hostname = parsed.hostname or ""
+        path_parts = [part for part in parsed.path.split("/") if part]
+        if not hostname.endswith(".oraclecloud.com") or "sites" not in path_parts:
+            return None
+
+        site_index = path_parts.index("sites") + 1
+        if site_index >= len(path_parts):
+            return None
+        return f"{parsed.scheme}://{hostname}", path_parts[site_index]
 
     def _fetch_all_jobs(self, oracle_base_url: str, site_number: str) -> list[dict[str, Any]]:
         jobs: list[dict[str, Any]] = []
@@ -131,6 +152,10 @@ class OracleExtractor(BaseExtractor):
         )
 
     def _company_name(self) -> str:
+        if self.source_url:
+            hostname = urlparse(self.source_url).hostname or ""
+            if hostname in self.COMPANY_BY_HOST:
+                return self.COMPANY_BY_HOST[hostname]
         return self.board_token.replace("-", " ").title()
 
     def _job_url(self, job_id: str) -> str:

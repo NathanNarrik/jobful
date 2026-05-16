@@ -1,0 +1,23 @@
+# Routeable sources from the pasted global tech-company list.
+# Custom/blocking boards are tracked in outputs/user_requested_discovery/unmatched_companies.txt.
+https://www.google.com/about/careers/applications/jobs/results
+https://www.amazon.jobs/en/search
+https://jobs.apple.com/en-us/search?sort=relevance
+https://boards.greenhouse.io/airbnb
+https://boards.greenhouse.io/asana
+https://jobs.lever.co/atlassian
+https://boards.greenhouse.io/block
+https://boards.greenhouse.io/deepmind
+https://boards.greenhouse.io/dropbox
+https://boards.greenhouse.io/flexport
+https://boards.greenhouse.io/instacart
+https://boards.greenhouse.io/linkedin
+https://boards.greenhouse.io/lyft
+https://boards.greenhouse.io/mongodb
+https://jobs.lever.co/palantir
+https://boards.greenhouse.io/samsara
+https://jobs.ashbyhq.com/snowflake
+https://jobs.lever.co/spotify
+https://boards.greenhouse.io/stripe
+https://boards.greenhouse.io/tripadvisor
+https://boards.greenhouse.io/twilio
