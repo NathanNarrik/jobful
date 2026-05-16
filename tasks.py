@@ -11,7 +11,7 @@ from celery.exceptions import MaxRetriesExceededError
 
 from celery_app import REDIS_URL
 from celery_app import celery_app
-from main import dedupe_urls, extract_single_url
+from cli.extract import dedupe_urls, extract_single_url
 from models import JobListing
 from normalizers.pipeline import normalize_jobs
 from queueing import QueueName, choose_queue, get_backoff_delay

@@ -91,6 +91,13 @@ Pull a newline-delimited URL file and merge it with the default seed list:
 python main.py --input-file my_sources.txt --include-defaults --workers 12 --timeout 8
 ```
 
+For the standard source and extractor growth workflow, see
+[`ADDING_SOURCES_AND_EXTRACTORS.md`](ADDING_SOURCES_AND_EXTRACTORS.md).
+
+The root command files are intentionally thin wrappers. The command
+implementations live in `cli/`, while shared extraction, normalization, storage,
+and API code live in `extractors/`, `normalizers/`, `db/`, and `api/`.
+
 ---
 
 ## 5. Running Phase 2 Orchestration
@@ -260,3 +267,58 @@ The normalized artifact contains each original `JobListing`, a
 * `normalization_status`
 * `confidence`
 * `review_reasons`
+
+---
+
+## 7. Running Phase 4 Storage And API
+
+Phase 4 persists normalized records in Postgres and serves read-only FastAPI
+endpoints for the future frontend. The database uses companies and jobs tables,
+dedupes jobs by unique `content_hash`, and indexes core filters such as skill,
+location, academic level, graduation year, visa status, company, and recency.
+
+Start Redis and Postgres:
+
+```bash
+docker compose up -d redis postgres
+```
+
+Apply the database schema:
+
+```bash
+python -m alembic upgrade head
+```
+
+Import the full Phase 3 normalized artifact:
+
+```bash
+python -m db.import_phase3 outputs/phase3_full_default_normalized.json
+```
+
+Re-running the same import updates existing rows instead of duplicating jobs:
+
+```bash
+python -m db.import_phase3 outputs/phase3_full_default_normalized.json
+```
+
+Run the API:
+
+```bash
+python -m uvicorn api.main:app --reload
+```
+
+Verify the core endpoints:
+
+```bash
+Invoke-RestMethod http://localhost:8000/health
+Invoke-RestMethod "http://localhost:8000/jobs?limit=5&skill=python"
+Invoke-RestMethod http://localhost:8000/companies
+Invoke-RestMethod http://localhost:8000/skills/popular
+Invoke-RestMethod http://localhost:8000/stats
+```
+
+Useful maintenance command:
+
+```bash
+python -m db.mark_stale --older-than-hours 48
+```

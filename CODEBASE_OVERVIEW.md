@@ -60,19 +60,31 @@ For Phase 2:
 Celery Beat or phase2.py
   -> Redis queue
   -> Celery worker
-  -> main.extract_single_url(...)
+  -> cli.extract.extract_single_url(...)
   -> AtsRouter
   -> extractor
   -> serialized jobs / failure record
 ```
 
 The important design choice is that the manual CLI and Celery workers share the
-same extraction path. `main.py` is still the source of truth for extracting a
-single URL or a batch of URLs.
+same extraction path. Root command files such as `main.py`, `phase2.py`, and
+`phase3.py` are compatibility wrappers; their implementations live in `cli/`.
+
+## Package Layout
+
+```text
+api/          FastAPI app, schemas, and read-only routes
+cli/          Command implementations for extraction, enqueueing, normalization, and audits
+db/           SQLAlchemy models, sessions, import, stale-job maintenance
+extractors/   ATS-specific extraction strategies and shared extractor helpers
+normalizers/  Phase 3 cleaning, heuristics, Ollama, and normalization pipeline
+scripts/      One-off discovery/debugging helpers
+tests/        Unit and API tests
+```
 
 ## Main Entry Points
 
-### `main.py`
+### `main.py` / `cli.extract`
 
 Manual Phase 1 puller.
 
@@ -99,7 +111,7 @@ Important functions:
 - `dedupe_urls(...)`: trims, removes blank/commented/duplicate URLs
 - `write_result(...)`: writes a `PullResult` JSON artifact
 
-### `phase2.py`
+### `phase2.py` / `cli.enqueue`
 
 Manual Phase 2 enqueue CLI.
 
@@ -119,7 +131,7 @@ python phase2.py https://boards.greenhouse.io/airbnb --queue jobful:high
 python phase2.py --input-file sources_user_requested_companies_expanded.txt
 ```
 
-### `phase2_status.py`
+### `phase2_status.py` / `cli.queue_status`
 
 Queue and failure monitor.
 
@@ -135,7 +147,7 @@ Useful command:
 python phase2_status.py
 ```
 
-### `phase3.py`
+### `phase3.py` / `cli.normalize`
 
 Phase 3 normalization CLI.
 
@@ -154,7 +166,7 @@ python phase3.py outputs/full_default_confirmation.json --limit 500 --no-ollama
 python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_full_default_normalized.json --no-ollama
 ```
 
-### `phase3_audit.py`
+### `phase3_audit.py` / `cli.audit`
 
 Creates CSV samples from a normalized artifact for human review.
 
@@ -701,17 +713,37 @@ Phase 2 was also verified with:
 
 ## What Comes Next
 
-Phase 3 now exists locally. The next hardening steps are:
+Phase 4 now exists locally. The current storage/API layer includes:
 
-- tune heuristic precision/recall on more samples
-- add optional Ollama evaluation once the local model is running
-- add local Postgres
-- persist normalized records in database tables
-- enforce deduplication with a database unique index
+- Docker Compose Postgres alongside Redis
+- Alembic migration `0001_phase4_storage`
+- `companies` and `jobs` SQLAlchemy models
+- unique `jobs.content_hash` dedupe
+- batched Phase 3 artifact import
+- stale-job marking with `python -m db.mark_stale`
+- FastAPI read endpoints for jobs, companies, popular skills, and stats
+- focused Phase 4 import/API tests
 
-Before deploying, the project should add local Postgres and write extracted
-jobs into database tables instead of relying on JSON artifacts and Celery task
-results. The local stack should eventually become:
+Run the local storage/API stack:
+
+```powershell
+docker compose up -d redis postgres
+python -m alembic upgrade head
+python -m db.import_phase3 outputs/phase3_full_default_normalized.json
+python -m uvicorn api.main:app --reload
+```
+
+Verify:
+
+```powershell
+Invoke-RestMethod http://localhost:8000/health
+Invoke-RestMethod "http://localhost:8000/jobs?limit=5&skill=python"
+Invoke-RestMethod http://localhost:8000/companies
+Invoke-RestMethod http://localhost:8000/skills/popular
+Invoke-RestMethod http://localhost:8000/stats
+```
+
+The local stack is now:
 
 ```text
 Redis
@@ -722,5 +754,5 @@ FastAPI backend
 Frontend
 ```
 
-Once that works locally, production deployment becomes a matter of moving the
-always-on services to a VPS or managed platform.
+Phase 5 can now focus on the frontend and user application tracking instead of
+the persistence foundation.
