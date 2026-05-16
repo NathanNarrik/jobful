@@ -14,7 +14,8 @@ class LeverExtractor(BaseExtractor):
     provider = "lever"
     api_url_template = "https://api.lever.co/v0/postings/{board_token}?mode=json&limit={limit}&offset={offset}"
     page_limit = 250
-    pagination_delay_seconds = 1.0
+    max_pages = 8
+    pagination_delay_seconds = 0.25
 
     def extract(self) -> list[JobListing]:
         payload = self._fetch_all_pages()
@@ -39,22 +40,42 @@ class LeverExtractor(BaseExtractor):
 
     def _fetch_all_pages(self) -> list[dict[str, Any]]:
         jobs: list[dict[str, Any]] = []
+        seen_job_ids: set[str] = set()
         offset = 0
+        page_count = 0
 
         while True:
+            if page_count >= self.max_pages:
+                self.logger.warning(
+                    "Stopping Lever pagination for board %s after %s pages",
+                    self.board_token,
+                    self.max_pages,
+                )
+                break
+
             url = self.api_url_template.format(
                 board_token=self.board_token,
                 limit=self.page_limit,
                 offset=offset,
             )
             payload = self._get_json(url)
+            page_count += 1
             if not isinstance(payload, list):
                 self.logger.error("Unexpected Lever payload shape for board %s", self.board_token)
                 raise ExtractionError("Unexpected Lever payload schema", raw_payload=payload)
             if not payload:
                 break
 
-            jobs.extend(payload)
+            new_jobs = self._new_jobs(payload, seen_job_ids)
+            if not new_jobs:
+                self.logger.warning(
+                    "Stopping Lever pagination for board %s because offset %s returned no new jobs",
+                    self.board_token,
+                    offset,
+                )
+                break
+
+            jobs.extend(new_jobs)
             if len(payload) < self.page_limit:
                 break
 
@@ -62,6 +83,24 @@ class LeverExtractor(BaseExtractor):
             time.sleep(self.pagination_delay_seconds)
 
         return jobs
+
+    def _new_jobs(
+        self,
+        payload: list[object],
+        seen_job_ids: set[str],
+    ) -> list[dict[str, Any]]:
+        new_jobs: list[dict[str, Any]] = []
+        for job in payload:
+            if not isinstance(job, dict):
+                raise ExtractionError("Lever job payload is not an object", raw_payload=job)
+
+            job_id = str(job.get("id") or job.get("hostedUrl") or job.get("text") or "").strip()
+            if job_id and job_id in seen_job_ids:
+                continue
+            if job_id:
+                seen_job_ids.add(job_id)
+            new_jobs.append(job)
+        return new_jobs
 
     def _map_job(self, job: dict[str, Any]) -> JobListing:
         categories = job.get("categories") if isinstance(job.get("categories"), dict) else {}

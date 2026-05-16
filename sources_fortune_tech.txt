@@ -1,0 +1,15 @@
+# Fortune 500 / mega-cap tech sources verified for direct extraction.
+https://www.google.com/about/careers/applications/jobs/results
+https://www.amazon.jobs/en/search
+https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
+https://intel.wd1.myworkdayjobs.com/External
+https://adobe.wd5.myworkdayjobs.com/external_experienced
+https://micron.wd1.myworkdayjobs.com/External
+https://amat.wd1.myworkdayjobs.com/External
+https://broadcom.wd1.myworkdayjobs.com/External_Career
+https://boards.greenhouse.io/block
+https://boards.greenhouse.io/datadog
+https://boards.greenhouse.io/cloudflare
+https://boards.greenhouse.io/stripe
+https://boards.greenhouse.io/waymo
+https://boards.greenhouse.io/okta

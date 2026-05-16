@@ -1,0 +1,35 @@
+# Fortune 500 / mega-cap / quant sources verified for direct open-job extraction.
+# These providers return active/open job listings from company-owned career systems.
+https://www.google.com/about/careers/applications/jobs/results
+https://www.amazon.jobs/en/search
+https://careers.honeywell.com/en/sites/Honeywell/jobs
+https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
+https://intel.wd1.myworkdayjobs.com/External
+https://adobe.wd5.myworkdayjobs.com/external_experienced
+https://micron.wd1.myworkdayjobs.com/External
+https://amat.wd1.myworkdayjobs.com/External
+https://broadcom.wd1.myworkdayjobs.com/External_Career
+https://boards.greenhouse.io/block
+https://boards.greenhouse.io/datadog
+https://boards.greenhouse.io/cloudflare
+https://boards.greenhouse.io/stripe
+https://boards.greenhouse.io/waymo
+https://boards.greenhouse.io/okta
+https://boards.greenhouse.io/janestreet
+https://boards.greenhouse.io/imc
+https://boards.greenhouse.io/jumptrading
+https://boards.greenhouse.io/towerresearchcapital
+https://boards.greenhouse.io/optiverus
+https://boards.greenhouse.io/oldmissioncapital
+https://boards.greenhouse.io/chicagotrading
+https://boards.greenhouse.io/aqr
+https://boards.greenhouse.io/quberesearchandtechnologies
+https://boards.greenhouse.io/squarepointcapital
+https://boards.greenhouse.io/worldquant
+https://boards.greenhouse.io/transmarketgroup
+https://boards.greenhouse.io/virtu
+https://boards.greenhouse.io/schonfeld
+https://boards.greenhouse.io/winton
+https://boards.greenhouse.io/engineersgate
+https://boards.greenhouse.io/grahamcapitalmanagement
+https://boards.greenhouse.io/mangroup

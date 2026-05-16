@@ -7,9 +7,12 @@ from typing import Type
 from urllib.parse import parse_qs, urlparse
 
 from extractors.base import BaseExtractor
+from extractors.amazon import AmazonExtractor
 from extractors.ashby import AshbyExtractor
+from extractors.google import GoogleExtractor
 from extractors.greenhouse import GreenhouseExtractor
 from extractors.lever import LeverExtractor
+from extractors.oracle import OracleExtractor
 from extractors.workday import WorkdayExtractor
 from models import JobListing
 
@@ -51,6 +54,16 @@ class AtsRouter:
         if self._is_workday(hostname):
             token = self._workday_token(hostname)
             return AtsRoute("workday", token, WorkdayExtractor, career_url)
+
+        if self._is_amazon(hostname):
+            return AtsRoute("amazon", "amazon", AmazonExtractor, career_url)
+
+        if self._is_google(hostname, path_parts):
+            return AtsRoute("google", "google", GoogleExtractor, career_url)
+
+        if self._is_oracle_recruiting(hostname, path_parts):
+            token = self._oracle_token(hostname, path_parts)
+            return AtsRoute("oracle", token, OracleExtractor, career_url)
 
         raise UnsupportedAtsError(f"Unsupported or unrecognized ATS URL: {career_url}")
 
@@ -133,6 +146,22 @@ class AtsRouter:
         if token:
             return token
         raise UnsupportedAtsError("Could not determine Workday board token")
+
+    def _is_amazon(self, hostname: str) -> bool:
+        return hostname == "www.amazon.jobs" or hostname == "amazon.jobs"
+
+    def _is_google(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname in {"www.google.com", "careers.google.com"} and "careers" in path_parts
+
+    def _is_oracle_recruiting(self, hostname: str, path_parts: list[str]) -> bool:
+        return bool(path_parts) and ("careers" in hostname or hostname.endswith(".oraclecloud.com"))
+
+    def _oracle_token(self, hostname: str, path_parts: list[str]) -> str:
+        if "sites" in path_parts:
+            site_index = self._index_after(path_parts, "sites")
+            if site_index is not None:
+                return path_parts[site_index]
+        return hostname.split(".", maxsplit=1)[0]
 
     def _index_after(self, path_parts: list[str], marker: str) -> int | None:
         try:

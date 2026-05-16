@@ -21,6 +21,7 @@ class WorkdayContext:
 class WorkdayExtractor(BaseExtractor):
     provider = "workday"
     page_limit = 20
+    detail_fetch_limit = 250
     page_load_timeout_ms = 30_000
 
     def extract(self) -> list[JobListing]:
@@ -80,11 +81,15 @@ class WorkdayExtractor(BaseExtractor):
             postings = payload["jobPostings"]
             if not postings:
                 break
+            should_fetch_details = total is None or total <= self.detail_fetch_limit
 
             for posting in postings:
                 if not isinstance(posting, dict):
                     raise ExtractionError("Workday posting payload is not an object", raw_payload=posting)
-                jobs.append(self._fetch_direct_cxs_detail(context, posting))
+                if should_fetch_details:
+                    jobs.append(self._fetch_direct_cxs_detail(context, posting))
+                else:
+                    jobs.append(posting)
 
             offset += len(postings)
             if total is None and len(postings) < self.page_limit:
