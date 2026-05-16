@@ -77,6 +77,7 @@ api/          FastAPI app, schemas, and read-only routes
 cli/          Command implementations for extraction, enqueueing, normalization, and audits
 db/           SQLAlchemy models, sessions, import, stale-job maintenance
 extractors/   ATS-specific extraction strategies and shared extractor helpers
+frontend/     Next.js discovery feed and Kanban tracking UI
 normalizers/  Phase 3 cleaning, heuristics, Ollama, and normalization pipeline
 scripts/      One-off discovery/debugging helpers
 tests/        Unit and API tests
@@ -754,5 +755,15 @@ FastAPI backend
 Frontend
 ```
 
-Phase 5 can now focus on the frontend and user application tracking instead of
-the persistence foundation.
+Phase 5 has started locally. The frontend and tracking foundation includes:
+
+- Next.js App Router app in `frontend/`
+- `/discover` dense job feed
+- `/dashboard` Kanban pipeline
+- Zustand stores
+- dnd-kit drag-and-drop
+- mobile move fallback
+- optimistic application updates
+- `user_applications` table and `/applications` API routes
+
+See `PHASE5_README.md` for the Phase 5 contract and commands.

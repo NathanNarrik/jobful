@@ -322,3 +322,40 @@ Useful maintenance command:
 ```bash
 python -m db.mark_stale --older-than-hours 48
 ```
+
+---
+
+## 8. Running Phase 5 Frontend
+
+Phase 5 adds the local Next.js frontend and personal application tracking
+foundation. The design-source details are captured in
+[`PHASE5_README.md`](PHASE5_README.md).
+
+Run the API:
+
+```bash
+python -m uvicorn api.main:app --reload
+```
+
+Run the frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000/discover
+http://localhost:3000/dashboard
+```
+
+Frontend checks:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```

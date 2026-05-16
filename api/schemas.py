@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -88,6 +88,44 @@ class StatsSummary(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     database: str
+
+
+ApplicationStatus = Literal[
+    "SAVED",
+    "APPLIED",
+    "PHONE_SCREEN",
+    "TECHNICAL",
+    "FINAL",
+    "OFFER",
+    "REJECTED",
+]
+
+
+class ApplicationCreate(BaseModel):
+    job_id: UUID
+    status: ApplicationStatus = "SAVED"
+
+
+class ApplicationUpdate(BaseModel):
+    status: ApplicationStatus | None = None
+    notes: str | None = None
+    kanban_order: int | None = None
+    applied_at: datetime | None = None
+
+
+class ApplicationRecord(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    job_id: UUID | None
+    status: ApplicationStatus
+    applied_at: datetime | None
+    notes: str | None
+    kanban_order: int
+    created_at: datetime
+    updated_at: datetime
+    job: JobListItem | None = None
 
 
 def model_to_schema_dict(model: Any) -> dict[str, Any]:

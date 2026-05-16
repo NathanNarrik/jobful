@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 from api.deps import get_db
 from api.main import app
 from db.import_phase3 import import_result
-from db.models import Base, Company, Job
+from db.models import Base, Company, Job, UserApplication
 from models import JobListing, JobNormalization, NormalizationResult, NormalizedJobRecord
 
 
@@ -149,6 +149,31 @@ class Phase4Tests(unittest.TestCase):
         self.assertEqual(len(self.client.get(f"/companies/{company_id}/jobs").json()), 1)
         self.assertEqual(self.client.get("/stats").json()["active_jobs"], 1)
         self.assertEqual(self.client.get("/skills/popular").json()[0], {"skill": "python", "count": 1})
+
+    def test_application_pipeline_create_update_and_list(self) -> None:
+        with Session(self.engine) as session:
+            import_result(session, sample_result())
+            job_id = str(session.scalar(select(Job.id)))
+
+        created = self.client.post(
+            "/applications",
+            json={"job_id": job_id, "status": "SAVED"},
+        ).json()
+        self.assertEqual(created["status"], "SAVED")
+        self.assertEqual(created["job"]["company_name"], "ExampleCo")
+
+        updated = self.client.patch(
+            f"/applications/{created['id']}",
+            json={"status": "APPLIED", "notes": "Submitted on the company site", "kanban_order": 2},
+        ).json()
+        self.assertEqual(updated["status"], "APPLIED")
+        self.assertEqual(updated["notes"], "Submitted on the company site")
+
+        pipeline = self.client.get("/applications").json()
+        self.assertEqual(len(pipeline), 1)
+        self.assertEqual(pipeline[0]["status"], "APPLIED")
+        with Session(self.engine) as session:
+            self.assertEqual(session.scalar(select(UserApplication.status)), "APPLIED")
 
 
 if __name__ == "__main__":

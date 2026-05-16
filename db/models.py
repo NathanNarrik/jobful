@@ -157,3 +157,27 @@ class Job(Base):
     normalized_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     company: Mapped[Company] = relationship(back_populates="jobs")
+    applications: Mapped[list["UserApplication"]] = relationship(back_populates="job")
+
+
+class UserApplication(Base):
+    __tablename__ = "user_applications"
+    __table_args__ = (
+        UniqueConstraint("user_id", "job_id", name="uq_user_applications_user_job"),
+        Index("ix_user_applications_user_id", "user_id"),
+        Index("ix_user_applications_job_id", "job_id"),
+        Index("ix_user_applications_status", "status"),
+        Index("ix_user_applications_user_status_order", "user_id", "status", "kanban_order"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(PortableUUID, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(PortableUUID, nullable=False)
+    job_id: Mapped[uuid.UUID | None] = mapped_column(PortableUUID, ForeignKey("jobs.id", ondelete="SET NULL"))
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="SAVED")
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notes: Mapped[str | None] = mapped_column(Text)
+    kanban_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+
+    job: Mapped[Job | None] = relationship(back_populates="applications")
