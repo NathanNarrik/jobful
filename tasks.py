@@ -12,6 +12,8 @@ from celery.exceptions import MaxRetriesExceededError
 from celery_app import REDIS_URL
 from celery_app import celery_app
 from main import dedupe_urls, extract_single_url
+from models import JobListing
+from normalizers.pipeline import normalize_jobs
 from queueing import QueueName, choose_queue, get_backoff_delay
 from sources import DEFAULT_CAREER_URLS
 
@@ -56,6 +58,46 @@ def extract_source(
         "source": source_result.model_dump(mode="json"),
         "jobs": [job.model_dump(mode="json") for job in jobs],
         "failure": failure.model_dump(mode="json") if failure else None,
+    }
+
+
+@celery_app.task(name="jobful.normalize_jobs")
+def normalize_jobs_task(
+    jobs_payload: list[dict[str, Any]],
+    *,
+    use_ollama: bool = True,
+    ollama_mode: str = "review",
+) -> dict[str, Any]:
+    jobs = [JobListing.model_validate(job_payload) for job_payload in jobs_payload]
+    result = normalize_jobs(jobs, use_ollama=use_ollama, ollama_mode=ollama_mode)
+    return result.model_dump(mode="json")
+
+
+@celery_app.task(name="jobful.extract_and_normalize_source")
+def extract_and_normalize_source(
+    career_url: str,
+    timeout_seconds: float = 10.0,
+    *,
+    use_ollama: bool = True,
+    ollama_mode: str = "review",
+) -> dict[str, Any]:
+    extraction = extract_source.run(career_url, timeout_seconds)
+    if extraction["failure"] is not None:
+        return {
+            "source": extraction["source"],
+            "failure": extraction["failure"],
+            "normalization": None,
+        }
+
+    normalization = normalize_jobs_task.run(
+        extraction["jobs"],
+        use_ollama=use_ollama,
+        ollama_mode=ollama_mode,
+    )
+    return {
+        "source": extraction["source"],
+        "failure": None,
+        "normalization": normalization,
     }
 
 

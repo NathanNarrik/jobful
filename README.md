@@ -182,3 +182,81 @@ $env:JOBFUL_PROXY_FILE = "proxies.txt"
 
 When a request through a proxy returns `403` or `429`, Jobful marks the proxy as
 banned in Redis for 24 hours using the key pattern `proxy:{url}:banned`.
+
+---
+
+## 6. Running Phase 3 Normalization
+
+Phase 3 turns raw extracted listings into structured eligibility metadata. It
+cleans descriptions, deduplicates by content hash, extracts student-relevant
+fields with deterministic heuristics, and can optionally call a local Ollama
+model when `JOBFUL_USE_OLLAMA=true`. The practical default is hybrid mode:
+heuristics run first, and Ollama is used for low-confidence or needs-review
+records.
+
+Normalize a Phase 1 pull artifact with heuristics only:
+
+```bash
+python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_full_default_normalized.json --no-ollama
+```
+
+Normalize a smaller sample:
+
+```bash
+python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_sample_500.json --limit 500 --no-ollama
+```
+
+Run hybrid mode with Ollama enabled:
+
+```bash
+$env:JOBFUL_USE_OLLAMA = "true"
+$env:JOBFUL_OLLAMA_MODEL = "mistral"
+python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_hybrid_sample_25.json --limit 25
+```
+
+Force Ollama for every record in a tiny sample:
+
+```bash
+python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_ollama_sample_1.json --limit 1 --ollama-mode all
+```
+
+Create CSV files for manual audit:
+
+```bash
+python phase3_audit.py outputs/phase3_full_default_normalized.json -o outputs/phase3_audit_sample_100.csv --sample-size 100
+python phase3_audit.py outputs/phase3_full_default_normalized.json -o outputs/phase3_needs_review.csv --needs-review-only --sample-size 200
+```
+
+Optional Ollama configuration:
+
+```bash
+$env:JOBFUL_USE_OLLAMA = "true"
+$env:JOBFUL_OLLAMA_MODEL = "mistral"
+$env:JOBFUL_OLLAMA_URL = "http://localhost:11434/api/generate"
+$env:JOBFUL_OLLAMA_TIMEOUT = "120"
+$env:JOBFUL_OLLAMA_MAX_CHARS = "4000"
+```
+
+Check whether the configured local model can return valid normalization JSON:
+
+```bash
+python phase3_ollama_check.py
+```
+
+The normalized artifact contains each original `JobListing`, a
+`cleaned_description`, and normalized fields:
+
+* `program_type`
+* `academic_levels`
+* `degree_requirements`
+* `required_grad_years`
+* `visa_sponsorship`
+* `visa_status`
+* `required_skills`
+* `nice_to_have_skills`
+* `min_gpa`
+* `clearance_required`
+* `remote_type`
+* `normalization_status`
+* `confidence`
+* `review_reasons`
