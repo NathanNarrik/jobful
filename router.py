@@ -88,6 +88,9 @@ class AtsRouter:
             timeout_seconds=self.timeout_seconds,
         ).extract()
 
+    def detect_only(self, career_url: str) -> AtsRoute:
+        return self.route(career_url)
+
     def _is_greenhouse(self, hostname: str) -> bool:
         return hostname in {"boards.greenhouse.io", "job-boards.greenhouse.io"} or hostname.endswith(
             ".greenhouse.io"

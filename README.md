@@ -1,4 +1,4 @@
-# Project Jobful: System Architecture & Phase 1 Directives
+# Project Jobful: System Architecture & Implementation Plan
 
 ## 1. The Ultimate Goal & Philosophy
 **Jobful** is a unified, automated computer science application database. The current CS job hunting landscape is broken. Students are forced to rely on LinkedIn "ghost jobs," manual crowdsourced spreadsheets (like the Pitt CSC repo), or influencers who gatekeep newly opened positions for engagement. 
@@ -23,7 +23,7 @@ Jobful is a highly automated data pipeline built primarily in Python, leveraging
 
 ---
 
-## 3. Phase 1 Specifications: The Extraction Layer (Current Task)
+## 3. Phase 1 Specifications: The Extraction Layer
 
 Your objective as the coding agent is to build Phase 1. You must build a highly modular Python application that takes a company's career page URL, identifies the underlying ATS, and extracts all active job listings into a standardized Pydantic data model.
 
@@ -90,3 +90,95 @@ Pull a newline-delimited URL file and merge it with the default seed list:
 ```bash
 python main.py --input-file my_sources.txt --include-defaults --workers 12 --timeout 8
 ```
+
+---
+
+## 5. Running Phase 2 Orchestration
+
+Phase 2 wraps the Phase 1 extractors in Redis-backed Celery queues. The manual
+`main.py` puller still works; Celery workers call the same extraction path so
+the CLI and the autonomous pipeline stay consistent.
+
+Install dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Start Redis locally:
+
+```bash
+docker compose up -d redis
+```
+
+Run workers for each queue:
+
+```bash
+python -m celery -A celery_app worker -Q jobful:high,jobful:standard,jobful:slow --loglevel=INFO
+```
+
+On Windows, use Celery's solo pool:
+
+```bash
+python -m celery -A celery_app worker -P solo -Q jobful:high,jobful:standard,jobful:slow --loglevel=INFO
+```
+
+Start the beat scheduler in another terminal:
+
+```bash
+python -m celery -A celery_app beat --loglevel=INFO
+```
+
+For a quick local Beat smoke test, shorten one cadence temporarily:
+
+```bash
+$env:JOBFUL_BEAT_HIGH_SECONDS = "10"
+python -m celery -A celery_app beat --loglevel=INFO --max-interval=5
+```
+
+Submit work manually:
+
+```bash
+python phase2.py --include-defaults --dry-run
+python phase2.py --include-defaults
+python phase2.py https://boards.greenhouse.io/airbnb --queue jobful:high
+python phase2.py --input-file sources_user_requested_companies_expanded.txt
+python phase2.py --include-defaults --no-locks
+```
+
+Inspect queue status and recent dead letters:
+
+```bash
+python phase2_status.py
+```
+
+Queue behavior:
+
+* `jobful:high` handles major/high-priority companies on an hourly cadence.
+* `jobful:standard` handles normal company boards every four hours.
+* `jobful:slow` handles slower or browser-heavy sources every twelve hours.
+* `jobful:dead_letter` records sources that still fail after retries.
+
+Redis enqueue locks prevent Celery Beat from double-submitting the same company
+inside its queue cadence. Use `--no-locks` only when intentionally replaying a
+batch.
+
+Dead letters are persisted to `outputs/dead_letters.jsonl` and mirrored into
+Redis at `jobful:dead_letters` for quick status checks.
+
+Use `JOBFUL_REDIS_URL` to point workers at a non-default Redis instance:
+
+```bash
+$env:JOBFUL_REDIS_URL = "redis://localhost:6379/0"
+```
+
+Optional proxy rotation is enabled through environment configuration. Provide
+comma-separated URLs or a newline-delimited file:
+
+```bash
+$env:JOBFUL_PROXY_URLS = "http://user:pass@proxy1:8000,http://user:pass@proxy2:8000"
+$env:JOBFUL_PROXY_FILE = "proxies.txt"
+```
+
+When a request through a proxy returns `403` or `429`, Jobful marks the proxy as
+banned in Redis for 24 hours using the key pattern `proxy:{url}:banned`.

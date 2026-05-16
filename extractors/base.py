@@ -11,6 +11,7 @@ from typing import Any
 import requests
 
 from models import AtsProvider, JobListing
+from proxy import ProxyPool
 
 
 USER_AGENTS = [
@@ -80,6 +81,7 @@ class BaseExtractor(ABC):
         self.source_url = source_url
         self.timeout_seconds = timeout_seconds
         self.session = session or requests.Session()
+        self.proxy_pool = ProxyPool.from_environment()
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     @abstractmethod
@@ -108,6 +110,7 @@ class BaseExtractor(ABC):
                     url,
                     json=json_payload,
                     headers=self._headers(),
+                    proxies=self.proxy_pool.next_requests_proxy(),
                     timeout=self.timeout_seconds,
                 )
 
@@ -124,11 +127,13 @@ class BaseExtractor(ABC):
                         status_code=response.status_code,
                     )
                 if response.status_code == 403:
+                    self.proxy_pool.mark_current_proxy_banned()
                     raise ForbiddenError(
                         f"{self.provider} board returned HTTP 403",
                         status_code=response.status_code,
                     )
                 if response.status_code == 429:
+                    self.proxy_pool.mark_current_proxy_banned()
                     last_error = RateLimitedError(
                         f"{self.provider} board returned HTTP 429",
                         status_code=response.status_code,
