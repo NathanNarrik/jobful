@@ -19,7 +19,7 @@ export function JobRow({ job }: { job: JobListItem }) {
 
   return (
     <article
-      className="grid cursor-pointer gap-3 border-b border-[var(--line)] bg-white px-3 py-3 transition hover:bg-[var(--surface-strong)] md:grid-cols-[minmax(260px,1.5fr)_minmax(160px,0.8fr)_minmax(220px,1.1fr)_auto] md:items-center"
+      className="grid cursor-pointer gap-3 border-b border-[var(--line)] bg-white px-3 py-3 transition hover:bg-[var(--surface-strong)] hover:shadow-[inset_3px_0_0_var(--accent)] md:grid-cols-[minmax(260px,1.5fr)_minmax(160px,0.8fr)_minmax(220px,1.1fr)_auto] md:items-center"
       onClick={() => void openJob(job.id)}
     >
       <div className="flex min-w-0 items-start gap-3">

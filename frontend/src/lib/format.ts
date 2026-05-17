@@ -39,6 +39,22 @@ export function daysSince(value: string | null) {
   return `${days} days`;
 }
 
+export function daysSinceLabel(value: string | null) {
+  const age = daysSince(value);
+  if (age === "Fresh") return "Fresh posting";
+  if (age === "Today") return "Posted today";
+  return `Posted ${age} ago`;
+}
+
+export function shortDate(value: string | null) {
+  if (!value) return "Not available";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 export function compactLocation(locations: string[]) {
   if (!locations.length) return "Unspecified";
   if (locations.length === 1) return locations[0];
@@ -49,4 +65,21 @@ export function companyInitials(company: string) {
   const words = company.split(/\s+/).filter(Boolean);
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+}
+
+export function plainTextDescription(value: string | null) {
+  if (!value) return "No description available.";
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<li>/gi, "\n- ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#x2019;|&rsquo;/g, "'")
+    .replace(/&#x201C;|&ldquo;/g, '"')
+    .replace(/&#x201D;|&rdquo;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 }
