@@ -21,7 +21,9 @@ class OracleExtractor(BaseExtractor):
     page_limit = 100
     max_pages = 100
     COMPANY_BY_HOST = {
+        "careers.ti.com": "Texas Instruments",
         "careers.honeywell.com": "Honeywell",
+        "eeho.fa.us2.oraclecloud.com": "Oracle",
         "jpmc.fa.oraclecloud.com": "JPMorgan Chase",
         "hdpc.fa.us2.oraclecloud.com": "Goldman Sachs",
     }

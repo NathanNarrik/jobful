@@ -15,7 +15,10 @@ from extractors.eightfold import EightfoldExtractor
 from extractors.google import GoogleExtractor
 from extractors.greenhouse import GreenhouseExtractor
 from extractors.lever import LeverExtractor
+from extractors.meta import MetaExtractor
 from extractors.oracle import OracleExtractor
+from extractors.smartrecruiters import SmartRecruitersExtractor
+from extractors.successfactors import SuccessFactorsExtractor
 from extractors.talentbrew import TalentBrewExtractor
 from extractors.workday import WorkdayExtractor
 from models import JobListing
@@ -65,11 +68,20 @@ class AtsRouter:
         if self._is_google(hostname, path_parts):
             return AtsRoute("google", "google", GoogleExtractor, career_url)
 
+        if self._is_meta(hostname, path_parts):
+            return AtsRoute("meta", "meta", MetaExtractor, career_url)
+
         if self._is_apple(hostname, path_parts):
             return AtsRoute("apple", "apple", AppleExtractor, career_url)
 
         if self._is_eightfold(hostname, path_parts):
             return AtsRoute("eightfold", self._eightfold_token(hostname), EightfoldExtractor, career_url)
+
+        if self._is_smartrecruiters(hostname, path_parts):
+            return AtsRoute("smartrecruiters", self._smartrecruiters_token(hostname, path_parts), SmartRecruitersExtractor, career_url)
+
+        if self._is_successfactors(hostname, path_parts):
+            return AtsRoute("successfactors", "sap", SuccessFactorsExtractor, career_url)
 
         if self._is_talentbrew(hostname, path_parts):
             return AtsRoute("talentbrew", self._hostname_token(hostname), TalentBrewExtractor, career_url)
@@ -172,16 +184,44 @@ class AtsRouter:
     def _is_google(self, hostname: str, path_parts: list[str]) -> bool:
         return hostname in {"www.google.com", "careers.google.com"} and "careers" in path_parts
 
+    def _is_meta(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname == "www.metacareers.com" and (
+            "jobsearch" in path_parts or "jobs" in path_parts
+        )
+
     def _is_apple(self, hostname: str, path_parts: list[str]) -> bool:
         return hostname == "jobs.apple.com" and "search" in path_parts
 
     def _is_eightfold(self, hostname: str, path_parts: list[str]) -> bool:
-        return hostname == "explore.jobs.netflix.net" and "careers" in path_parts
+        return (
+            hostname == "explore.jobs.netflix.net" and "careers" in path_parts
+        ) or (
+            hostname == "careers.qualcomm.com" and "careers" in path_parts and "search" in path_parts
+        ) or (
+            hostname == "apply.careers.microsoft.com" and "careers" in path_parts
+        )
 
     def _eightfold_token(self, hostname: str) -> str:
         if hostname == "explore.jobs.netflix.net":
             return "netflix"
+        if hostname == "apply.careers.microsoft.com":
+            return "microsoft"
+        if hostname == "careers.qualcomm.com":
+            return "qualcomm"
         return self._hostname_token(hostname)
+
+    def _is_smartrecruiters(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname in {"jobs.smartrecruiters.com", "api.smartrecruiters.com"} and bool(path_parts)
+
+    def _smartrecruiters_token(self, hostname: str, path_parts: list[str]) -> str:
+        if hostname == "api.smartrecruiters.com":
+            company_index = self._index_after(path_parts, "companies")
+            if company_index is not None:
+                return path_parts[company_index]
+        return path_parts[0]
+
+    def _is_successfactors(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname == "jobs.sap.com" and "search" in path_parts
 
     def _is_oracle_recruiting(self, hostname: str, path_parts: list[str]) -> bool:
         return bool(path_parts) and ("careers" in hostname or hostname.endswith(".oraclecloud.com"))
@@ -194,7 +234,7 @@ class AtsRouter:
         return hostname.split(".", maxsplit=1)[0]
 
     def _is_talentbrew(self, hostname: str, path_parts: list[str]) -> bool:
-        return hostname in {"careers.blackrock.com", "jobs.citi.com"} and "search-jobs" in path_parts
+        return hostname in {"careers.arm.com", "careers.blackrock.com", "jobs.citi.com", "jobs.intuit.com"} and "search-jobs" in path_parts
 
     def _is_avature(self, hostname: str, path_parts: list[str]) -> bool:
         return hostname == "careers.twosigma.com" and "careers" in path_parts

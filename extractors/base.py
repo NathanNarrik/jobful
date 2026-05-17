@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import random
+import re
 import time
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
@@ -213,12 +214,29 @@ class BaseExtractor(ABC):
             timestamp = value / 1000 if value > 10_000_000_000 else value
             return datetime.fromtimestamp(timestamp, UTC)
         if isinstance(value, str) and value.strip():
-            text = value.strip().replace("Z", "+00:00")
+            text = re.sub(r"\s+", " ", value.strip()).replace("Z", "+00:00")
             try:
                 parsed = datetime.fromisoformat(text)
             except ValueError:
-                return None
+                parsed = self._parse_human_datetime(text)
+                if parsed is None:
+                    return None
             return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+        return None
+
+    def _parse_human_datetime(self, text: str) -> datetime | None:
+        normalized = text.replace(". ", " ")
+        for date_format in (
+            "%B %d, %Y",
+            "%b %d, %Y",
+            "%Y-%m-%d",
+            "%Y-%m-%dT%H:%M:%S%z",
+            "%a %b %d %H:%M:%S UTC %Y",
+        ):
+            try:
+                return datetime.strptime(normalized, date_format).replace(tzinfo=UTC)
+            except ValueError:
+                continue
         return None
 
     def _build_listing(

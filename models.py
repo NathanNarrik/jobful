@@ -13,9 +13,12 @@ AtsProvider = Literal[
     "workday",
     "amazon",
     "google",
+    "meta",
     "apple",
     "eightfold",
     "oracle",
+    "smartrecruiters",
+    "successfactors",
     "talentbrew",
     "avature",
 ]

@@ -12,6 +12,11 @@ from models import JobListing
 class AshbyExtractor(BaseExtractor):
     provider = "ashby"
     api_url_template = "https://api.ashbyhq.com/posting-api/job-board/{board_token}"
+    COMPANY_BY_TOKEN = {
+        "cursor": "Cursor",
+        "mistral": "Mistral AI",
+        "openai": "OpenAI",
+    }
 
     def extract(self) -> list[JobListing]:
         url = self.api_url_template.format(board_token=self.board_token)
@@ -44,6 +49,8 @@ class AshbyExtractor(BaseExtractor):
         return listings
 
     def _company_name(self, payload: dict[str, Any]) -> str:
+        if self.board_token in self.COMPANY_BY_TOKEN:
+            return self.COMPANY_BY_TOKEN[self.board_token]
         for key in ("organizationName", "companyName", "name"):
             value = payload.get(key)
             if isinstance(value, str) and value.strip():

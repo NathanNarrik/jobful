@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+import re
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -23,6 +25,17 @@ class WorkdayExtractor(BaseExtractor):
     page_limit = 20
     detail_fetch_limit = 250
     page_load_timeout_ms = 30_000
+    COMPANY_BY_TOKEN = {
+        "amd": "AMD",
+        "arm": "Arm Holdings",
+        "cisco": "Cisco Systems",
+        "intuit": "Intuit",
+        "paloaltonetworks": "Palo Alto Networks",
+        "qualcomm": "Qualcomm",
+        "ti": "Texas Instruments",
+        "vmware": "VMware",
+        "zoom": "Zoom Video Communications",
+    }
 
     def extract(self) -> list[JobListing]:
         if not self.source_url:
@@ -200,7 +213,7 @@ class WorkdayExtractor(BaseExtractor):
         description_html = self._description_html(job)
 
         return self._build_listing(
-            company_name=self.board_token.replace("-", " ").title(),
+            company_name=self._company_name(),
             job_title=title,
             job_url=job_url,
             ats_job_id=job_id,
@@ -209,8 +222,38 @@ class WorkdayExtractor(BaseExtractor):
             description_html=description_html,
             employment_type=self._optional_string(job.get("timeType") or job.get("workerSubType")),
             departments=self._string_list(job.get("jobFamily") or job.get("jobFamilyGroup")),
-            date_posted=self._parse_datetime(job.get("startDate")),
+            date_posted=self._date_posted(job),
         )
+
+    def _company_name(self) -> str:
+        return self.COMPANY_BY_TOKEN.get(self.board_token, self.board_token.replace("-", " ").title())
+
+    def _date_posted(self, job: dict[str, Any]) -> datetime | None:
+        for key in ("startDate", "postedOn", "postedDate", "datePosted"):
+            value = job.get(key)
+            parsed = self._parse_datetime(value)
+            if parsed is not None:
+                return parsed
+            parsed = self._parse_relative_posted_on(value)
+            if parsed is not None:
+                return parsed
+        return None
+
+    def _parse_relative_posted_on(self, value: object) -> datetime | None:
+        if not isinstance(value, str):
+            return None
+
+        text = value.strip().lower()
+        now = datetime.now(UTC)
+        if text in {"posted today", "today"}:
+            return now
+        if text in {"posted yesterday", "yesterday"}:
+            return now - timedelta(days=1)
+
+        match = re.fullmatch(r"posted\s+(\d+)\+?\s+days?\s+ago", text)
+        if match:
+            return now - timedelta(days=int(match.group(1)))
+        return None
 
     def _job_id(self, job: dict[str, Any]) -> str:
         for key in ("jobReqId", "requisitionId", "id", "bulletFields", "externalPath"):

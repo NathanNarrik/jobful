@@ -129,7 +129,7 @@ def dedupe_urls(career_urls: Iterable[str]) -> list[str]:
     deduped: list[str] = []
 
     for career_url in career_urls:
-        normalized = career_url.strip()
+        normalized = career_url.strip().lstrip("\ufeff")
         if not normalized or normalized.startswith("#") or normalized in seen:
             continue
         seen.add(normalized)

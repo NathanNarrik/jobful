@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -15,9 +17,12 @@ from models import JobListing
 class TalentBrewExtractor(BaseExtractor):
     provider = "talentbrew"
     max_pages = 300
+    detail_workers = 8
 
     COMPANY_BY_HOST = {
+        "careers.arm.com": "Arm Holdings",
         "careers.blackrock.com": "BlackRock",
+        "jobs.intuit.com": "Intuit",
         "jobs.citi.com": "Citi",
     }
 
@@ -52,7 +57,7 @@ class TalentBrewExtractor(BaseExtractor):
 
         if not jobs:
             raise ExtractionError("No TalentBrew jobs discovered")
-        return jobs
+        return self._enrich_jobs_from_detail_pages(jobs)
 
     def _fetch_page(self, page: int) -> str:
         assert self.source_url is not None
@@ -76,7 +81,11 @@ class TalentBrewExtractor(BaseExtractor):
         soup = BeautifulSoup(html, "html.parser")
         jobs: list[dict[str, Any]] = []
 
-        for anchor in soup.select("a.section3__search-results-a[href], a.sr-job-item__link[href]"):
+        for anchor in soup.select(
+            "a.section3__search-results-a[href], "
+            "a.sr-job-item__link[href], "
+            "#search-results a[data-job-id][href]"
+        ):
             job_url = urljoin(self.source_url or "", str(anchor["href"]))
             job_id = str(anchor.get("data-job-id") or self._job_id_from_url(job_url)).strip()
             if not job_id or job_id in seen_ids:
@@ -84,7 +93,14 @@ class TalentBrewExtractor(BaseExtractor):
             seen_ids.add(job_id)
 
             title_node = anchor.select_one(".section3__job-title")
-            title = title_node.get_text(" ", strip=True) if title_node else anchor.get_text(" ", strip=True)
+            title = (
+                title_node.get_text(" ", strip=True)
+                if title_node
+                else str(anchor.get("data-title") or "").strip()
+            )
+            if not title:
+                heading = anchor.select_one("h1, h2, h3, .job-card__title")
+                title = heading.get_text(" ", strip=True) if heading else anchor.get_text(" ", strip=True)
             info = self._job_info(anchor)
             if not info:
                 info = self._radancy_job_info(anchor)
@@ -95,6 +111,7 @@ class TalentBrewExtractor(BaseExtractor):
                     "url": job_url,
                     "locations": info.get("Location", []) + info.get("Additional Locations", []),
                     "departments": info.get("Team", []),
+                    "date_posted": None,
                     "description": " | ".join(
                         part
                         for part in [
@@ -109,6 +126,58 @@ class TalentBrewExtractor(BaseExtractor):
             )
 
         return jobs
+
+    def _enrich_jobs_from_detail_pages(self, jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not self.source_url:
+            return jobs
+        hostname = urlparse(self.source_url).hostname or ""
+        if hostname not in {"careers.arm.com", "jobs.citi.com", "jobs.intuit.com"}:
+            return jobs
+
+        enriched_by_id: dict[str, dict[str, Any]] = {}
+        with ThreadPoolExecutor(max_workers=self.detail_workers) as executor:
+            futures = {executor.submit(self._detail_fields, job): job for job in jobs}
+            for future in as_completed(futures):
+                original = futures[future]
+                try:
+                    enriched = {**original, **future.result()}
+                except Exception:
+                    self.logger.warning(
+                        "Failed fetching TalentBrew detail page for %s",
+                        original.get("url"),
+                        exc_info=True,
+                    )
+                    enriched = original
+                enriched_by_id[str(original["id"])] = enriched
+
+        return [enriched_by_id.get(str(job["id"]), job) for job in jobs]
+
+    def _detail_fields(self, job: dict[str, Any]) -> dict[str, Any]:
+        response = self.session.get(
+            self._required_string(job, "url"),
+            headers=self._headers(),
+            timeout=self.timeout_seconds,
+        )
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        schema = self._job_posting_schema(soup)
+
+        fields: dict[str, Any] = {}
+        if isinstance(schema.get("datePosted"), str):
+            fields["date_posted"] = schema["datePosted"]
+        if isinstance(schema.get("description"), str) and schema["description"].strip():
+            fields["description"] = schema["description"]
+        return fields
+
+    def _job_posting_schema(self, soup: BeautifulSoup) -> dict[str, Any]:
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                payload = json.loads(script.get_text(strip=True))
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict) and payload.get("@type") == "JobPosting":
+                return payload
+        return {}
 
     def _job_info(self, anchor: Any) -> dict[str, list[str]]:
         info: dict[str, list[str]] = {}
@@ -128,7 +197,11 @@ class TalentBrewExtractor(BaseExtractor):
             return {}
 
         location_node = item.select_one(".sr-job-location")
+        if location_node is None:
+            location_node = item.select_one(".location, .job-location")
         type_node = item.select_one(".sr-job-type")
+        if type_node is None:
+            type_node = item.select_one(".category")
         info: dict[str, list[str]] = {}
         if location_node:
             info["Location"] = [location_node.get_text(" ", strip=True)]
@@ -148,7 +221,7 @@ class TalentBrewExtractor(BaseExtractor):
             description_html=None,
             employment_type=None,
             departments=self._string_list(job.get("departments")),
-            date_posted=None,
+            date_posted=self._parse_datetime(job.get("date_posted")),
         )
 
     def _company_name(self) -> str:
