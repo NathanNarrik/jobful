@@ -3,6 +3,7 @@ from .amazon import AmazonExtractor
 from .apple import AppleExtractor
 from .avature import AvatureRssExtractor
 from .ashby import AshbyExtractor
+from .eightfold import EightfoldExtractor
 from .greenhouse import GreenhouseExtractor
 from .google import GoogleExtractor
 from .lever import LeverExtractor
@@ -16,6 +17,7 @@ __all__ = [
     "AshbyExtractor",
     "AvatureRssExtractor",
     "BaseExtractor",
+    "EightfoldExtractor",
     "ExtractionError",
     "GoogleExtractor",
     "GreenhouseExtractor",

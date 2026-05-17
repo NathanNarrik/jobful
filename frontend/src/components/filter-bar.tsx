@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDiscoveryStore } from "@/stores/discovery-store";
 
@@ -12,7 +12,17 @@ const gradYears = ["2026", "2027", "2028", "2029", "2030"];
 export function FilterBar() {
   const { filters, setFilter, loadJobs, popularSkills } = useDiscoveryStore();
   const [searchDraft, setSearchDraft] = useState(filters.search);
+  const [openFilter, setOpenFilter] = useState<string | null>(null);
   const skillOptions = useMemo(() => popularSkills.map((skill) => skill.skill), [popularSkills]);
+
+  useEffect(() => {
+    function closeDropdown() {
+      setOpenFilter(null);
+    }
+
+    window.addEventListener("click", closeDropdown);
+    return () => window.removeEventListener("click", closeDropdown);
+  }, []);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -27,61 +37,185 @@ export function FilterBar() {
     void loadJobs(0);
   }
 
+  function clearFilters() {
+    setSearchDraft("");
+    for (const key of Object.keys(filters) as (keyof typeof filters)[]) {
+      setFilter(key, "");
+    }
+    void loadJobs(0);
+  }
+
+  const activeFilterCount =
+    Object.entries(filters).filter(([key, value]) => key !== "search" && Boolean(value)).length +
+    (searchDraft ? 1 : 0);
+
   return (
-    <div className="sticky top-14 z-30 border-b border-[var(--line)] bg-[var(--background)]/95 px-4 py-3 backdrop-blur sm:px-6">
-      <div className="mx-auto grid max-w-7xl gap-3 lg:grid-cols-[minmax(220px,1fr)_auto]">
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={17} />
+    <div className="rounded-xl border border-[var(--line)] bg-white p-2.5 shadow-[0_8px_24px_rgba(25,35,40,0.045)]">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="relative h-10 min-w-[260px] flex-[1_1_330px] lg:max-w-[460px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
           <input
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
             placeholder="Search title or company"
-            className="h-10 w-full rounded-md border border-[var(--line)] bg-white pl-9 pr-3 text-sm outline-none focus:border-[var(--accent)]"
+            className="focus-ring h-10 w-full min-w-0 rounded-lg border border-[var(--line)] bg-white pl-9 pr-3 text-sm shadow-sm outline-none focus:border-[var(--accent)]"
           />
         </label>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-          <Select label="Program" value={filters.program_type} options={programTypes} onChange={(value) => updateFilter("program_type", value)} />
-          <Select label="Grad year" value={filters.grad_year} options={gradYears} onChange={(value) => updateFilter("grad_year", value)} />
-          <Select label="Remote" value={filters.remote_type} options={remoteTypes} onChange={(value) => updateFilter("remote_type", value)} />
-          <Select label="Visa" value={filters.visa_status} options={visaStatuses} onChange={(value) => updateFilter("visa_status", value)} />
-          <Select label="Skill" value={filters.skill} options={skillOptions} onChange={(value) => updateFilter("skill", value)} />
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Dropdown
+            className="w-[204px]"
+            id="program"
+            label="Program"
+            value={filters.program_type}
+            options={programTypes}
+            openFilter={openFilter}
+            setOpenFilter={setOpenFilter}
+            onChange={(value) => updateFilter("program_type", value)}
+          />
+          <Dropdown
+            className="w-[164px]"
+            id="grad-year"
+            label="Grad year"
+            value={filters.grad_year}
+            options={gradYears}
+            openFilter={openFilter}
+            setOpenFilter={setOpenFilter}
+            onChange={(value) => updateFilter("grad_year", value)}
+          />
+          <Dropdown
+            className="w-[152px]"
+            id="remote"
+            label="Remote"
+            value={filters.remote_type}
+            options={remoteTypes}
+            openFilter={openFilter}
+            setOpenFilter={setOpenFilter}
+            onChange={(value) => updateFilter("remote_type", value)}
+          />
+          <Dropdown
+            className="w-[138px]"
+            id="visa"
+            label="Visa"
+            value={filters.visa_status}
+            options={visaStatuses}
+            openFilter={openFilter}
+            setOpenFilter={setOpenFilter}
+            onChange={(value) => updateFilter("visa_status", value)}
+          />
+          <Dropdown
+            className="w-[138px]"
+            id="skill"
+            label="Skill"
+            value={filters.skill}
+            options={skillOptions}
+            openFilter={openFilter}
+            setOpenFilter={setOpenFilter}
+            onChange={(value) => updateFilter("skill", value)}
+          />
         </div>
+        <button
+          type="button"
+          className="ml-auto inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 text-sm font-semibold text-[var(--muted-strong)] shadow-sm transition hover:border-[var(--line-strong)] hover:bg-[var(--surface-soft)]"
+          onClick={clearFilters}
+        >
+          <X size={15} />
+          Clear
+        </button>
       </div>
-      <div className="mx-auto mt-2 flex max-w-7xl items-center gap-2 text-xs text-[var(--muted)]">
-        <SlidersHorizontal size={14} />
-        <span>Instant filters refetch the feed. Search is debounced.</span>
+      <div className="mt-2 flex items-center justify-between gap-2 px-0.5 text-xs text-[var(--muted)]">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal size={14} />
+          <span>Instant filters refetch the feed. Search is debounced.</span>
+        </div>
+        <span className="font-medium">{activeFilterCount} active</span>
       </div>
     </div>
   );
 }
 
-function Select({
+function Dropdown({
+  className,
+  id,
   label,
   value,
   options,
+  openFilter,
+  setOpenFilter,
   onChange,
 }: {
+  className: string;
+  id: string;
   label: string;
   value: string;
   options: string[];
+  openFilter: string | null;
+  setOpenFilter: (id: string | null) => void;
   onChange: (value: string) => void;
 }) {
+  const isOpen = openFilter === id;
+  const displayValue = value ? formatOption(value) : "All";
+
   return (
-    <label className="flex h-10 items-center gap-2 rounded-md border border-[var(--line)] bg-white px-2 text-sm">
-      <span className="hidden text-xs font-medium text-[var(--muted)] sm:inline">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-        aria-label={label}
+    <div className={`relative shrink-0 ${className}`} onClick={(event) => event.stopPropagation()}>
+      <button
+        type="button"
+        className={`grid h-10 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-3 text-left text-sm shadow-sm transition ${
+          isOpen
+            ? "border-[var(--accent)] bg-white"
+            : "border-[var(--line)] bg-[var(--surface-soft)] hover:border-[var(--line-strong)] hover:bg-white"
+        }`}
+        aria-label={`${label}: ${displayValue}`}
+        aria-expanded={isOpen}
+        onClick={() => setOpenFilter(isOpen ? null : id)}
       >
-        <option value="">All</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option.replaceAll("_", " ")}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span className="whitespace-nowrap text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">{label}</span>
+        <span className="min-w-0 whitespace-nowrap text-sm font-medium text-[var(--foreground)]">{displayValue}</span>
+        <ChevronDown className={`text-[var(--muted)] transition ${isOpen ? "rotate-180" : ""}`} size={16} />
+      </button>
+      {isOpen ? (
+        <div className="absolute left-0 top-11 z-30 max-h-72 w-full overflow-auto rounded-lg border border-[var(--line)] bg-white p-1 shadow-[0_14px_32px_rgba(25,35,40,0.14)]">
+          <OptionButton label="All" active={!value} onClick={() => onChangeAndClose("", onChange, setOpenFilter)} />
+          {options.map((option) => (
+            <OptionButton
+              key={option}
+              label={formatOption(option)}
+              active={value === option}
+              onClick={() => onChangeAndClose(option, onChange, setOpenFilter)}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
+}
+
+function OptionButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className={`block w-full rounded-md px-2.5 py-2 text-left text-sm transition ${
+        active ? "bg-[var(--accent-soft)] font-semibold text-[var(--accent)]" : "text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
+      }`}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+function onChangeAndClose(value: string, onChange: (value: string) => void, setOpenFilter: (id: string | null) => void) {
+  onChange(value);
+  setOpenFilter(null);
+}
+
+function formatOption(option: string) {
+  const labels: Record<string, string> = {
+    new_grad: "New grad",
+    opt_cpt_allowed: "OPT/CPT",
+    requires_authorization: "Auth required",
+    does_not_sponsor: "No sponsor",
+    not_mentioned: "Not mentioned",
+  };
+
+  return labels[option] ?? option.replaceAll("_", " ");
 }

@@ -14,6 +14,7 @@ AtsProvider = Literal[
     "amazon",
     "google",
     "apple",
+    "eightfold",
     "oracle",
     "talentbrew",
     "avature",

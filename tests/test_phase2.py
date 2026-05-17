@@ -10,14 +10,38 @@ from unittest.mock import patch
 from proxy import ProxyPool
 from queueing import QueueName, choose_queue, get_backoff_delay
 from router import AtsRouter
+from sources import DEFAULT_CAREER_URLS
 from tasks import record_dead_letter
 
 
 class Phase2Tests(unittest.TestCase):
     def test_choose_queue_classifies_priority_sources(self) -> None:
         self.assertEqual(choose_queue("https://www.amazon.jobs/en/").queue, QueueName.HIGH)
+        self.assertEqual(choose_queue("https://jobs.lever.co/palantir").queue, QueueName.HIGH)
+        self.assertEqual(
+            choose_queue("https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite").queue,
+            QueueName.HIGH,
+        )
         self.assertEqual(choose_queue("https://jobs.ashbyhq.com/ashby").queue, QueueName.SLOW)
         self.assertEqual(choose_queue("https://boards.greenhouse.io/airbnb").queue, QueueName.STANDARD)
+
+    def test_default_sources_include_requested_top_company_expansion(self) -> None:
+        self.assertGreaterEqual(len(DEFAULT_CAREER_URLS), 150)
+
+        requested_sources = {
+            "https://www.google.com/about/careers/applications/jobs/results",
+            "https://www.amazon.jobs/en/search",
+            "https://jobs.apple.com/en-us/search?sort=relevance",
+            "https://explore.jobs.netflix.net/careers",
+            "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
+            "https://jobs.lever.co/palantir",
+            "https://boards.greenhouse.io/deepmind",
+            "https://boards.greenhouse.io/waymo",
+            "https://salesforce.wd12.myworkdayjobs.com/External_Career_Site",
+        }
+
+        self.assertTrue(requested_sources.issubset(DEFAULT_CAREER_URLS))
+        self.assertEqual(len(DEFAULT_CAREER_URLS), len(set(DEFAULT_CAREER_URLS)))
 
     def test_backoff_increases_with_jitter(self) -> None:
         delay = get_backoff_delay(3, base=2.0, cap=300.0)
@@ -30,6 +54,7 @@ class Phase2Tests(unittest.TestCase):
         self.assertEqual(router.detect_only("https://boards.greenhouse.io/airbnb").provider, "greenhouse")
         self.assertEqual(router.detect_only("https://jobs.lever.co/Flex").provider, "lever")
         self.assertEqual(router.detect_only("https://jobs.ashbyhq.com/ashby").provider, "ashby")
+        self.assertEqual(router.detect_only("https://explore.jobs.netflix.net/careers").provider, "eightfold")
 
     def test_proxy_pool_reads_environment_urls(self) -> None:
         with patch.dict(os.environ, {"JOBFUL_PROXY_URLS": "http://proxy-one:8000, http://proxy-two:8000"}, clear=True):

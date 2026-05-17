@@ -11,6 +11,7 @@ from extractors.amazon import AmazonExtractor
 from extractors.apple import AppleExtractor
 from extractors.ashby import AshbyExtractor
 from extractors.avature import AvatureRssExtractor
+from extractors.eightfold import EightfoldExtractor
 from extractors.google import GoogleExtractor
 from extractors.greenhouse import GreenhouseExtractor
 from extractors.lever import LeverExtractor
@@ -66,6 +67,9 @@ class AtsRouter:
 
         if self._is_apple(hostname, path_parts):
             return AtsRoute("apple", "apple", AppleExtractor, career_url)
+
+        if self._is_eightfold(hostname, path_parts):
+            return AtsRoute("eightfold", self._eightfold_token(hostname), EightfoldExtractor, career_url)
 
         if self._is_talentbrew(hostname, path_parts):
             return AtsRoute("talentbrew", self._hostname_token(hostname), TalentBrewExtractor, career_url)
@@ -170,6 +174,14 @@ class AtsRouter:
 
     def _is_apple(self, hostname: str, path_parts: list[str]) -> bool:
         return hostname == "jobs.apple.com" and "search" in path_parts
+
+    def _is_eightfold(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname == "explore.jobs.netflix.net" and "careers" in path_parts
+
+    def _eightfold_token(self, hostname: str) -> str:
+        if hostname == "explore.jobs.netflix.net":
+            return "netflix"
+        return self._hostname_token(hostname)
 
     def _is_oracle_recruiting(self, hostname: str, path_parts: list[str]) -> bool:
         return bool(path_parts) and ("careers" in hostname or hostname.endswith(".oraclecloud.com"))

@@ -19,16 +19,16 @@ export function JobRow({ job }: { job: JobListItem }) {
 
   return (
     <article
-      className="grid cursor-pointer gap-3 border-b border-[var(--line)] bg-white px-3 py-3 transition hover:bg-[var(--surface-strong)] hover:shadow-[inset_3px_0_0_var(--accent)] md:grid-cols-[minmax(260px,1.5fr)_minmax(160px,0.8fr)_minmax(220px,1.1fr)_auto] md:items-center"
+      className="grid cursor-pointer gap-3 border-b border-[var(--line)] bg-white px-4 py-3 transition hover:bg-[var(--surface-soft)] hover:shadow-[inset_3px_0_0_var(--accent)] md:grid-cols-[minmax(260px,1.5fr)_minmax(160px,0.8fr)_minmax(220px,1.1fr)_auto] md:items-center"
       onClick={() => void openJob(job.id)}
     >
       <div className="flex min-w-0 items-start gap-3">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[var(--surface-strong)] text-xs font-bold text-[var(--accent-strong)]">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-xs font-bold text-[var(--accent-strong)] ring-1 ring-inset ring-teal-100">
           {companyInitials(job.company_name)}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--accent)]">{job.company_name}</p>
-          <h2 className="line-clamp-2 text-sm font-semibold leading-5 text-[var(--foreground)]">{job.job_title}</h2>
+          <p className="truncate text-xs font-bold uppercase tracking-wide text-[var(--accent)]">{job.company_name}</p>
+          <h2 className="mt-0.5 line-clamp-2 text-[15px] font-semibold leading-5 text-[var(--foreground)]">{job.job_title}</h2>
         </div>
       </div>
 

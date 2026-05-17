@@ -1,15 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f8f5;
-  --foreground: #171a1c;
+  --background: #f5f7f8;
+  --foreground: #15191d;
   --surface: #ffffff;
-  --surface-strong: #eef3f0;
-  --line: #d9dfda;
-  --muted: #65716b;
+  --surface-strong: #eef3f2;
+  --surface-soft: #f9fbfb;
+  --line: #d7dedf;
+  --line-strong: #bdc9ca;
+  --muted: #647176;
+  --muted-strong: #465258;
   --accent: #0f766e;
-  --accent-strong: #115e59;
+  --accent-strong: #0b5f59;
+  --accent-soft: #e3f4f1;
+  --blue: #275f99;
+  --blue-soft: #e8f0f8;
   --warning: #9a5b13;
+  --warning-soft: #fff5df;
   --danger: #a73737;
 }
 
@@ -24,6 +31,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
 button,
@@ -44,4 +52,16 @@ button:disabled {
 
 * {
   box-sizing: border-box;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }

@@ -3,7 +3,7 @@
 import { DndContext, DragEndEvent, PointerSensor, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, MoveRight } from "lucide-react";
+import { GripVertical, MoveRight, Rows3 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/badge";
 import { Toast } from "@/components/toast";
@@ -46,13 +46,22 @@ export function DashboardClient() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
-      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+    <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+      <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-[var(--muted)]">Move jobs through your application pipeline after applying on the company site.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--accent)]">Closed-loop tracker</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="mt-1 text-sm text-[var(--muted)]">Move jobs through your application pipeline after applying on the company site.</p>
         </div>
-        <p className="text-sm font-medium text-[var(--muted)]">{applications.length} tracked roles</p>
+        <div className="flex h-12 items-center gap-3 rounded-xl border border-[var(--line)] bg-white px-3 shadow-sm">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--blue-soft)] text-[var(--blue)]">
+            <Rows3 size={15} />
+          </span>
+          <span>
+            <span className="block text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">Tracked</span>
+            <span className="block text-sm font-semibold">{applications.length} roles</span>
+          </span>
+        </div>
       </div>
       {error ? <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div> : null}
       {loading && !applications.length ? (
@@ -63,7 +72,7 @@ export function DashboardClient() {
         </div>
       ) : (
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-          <div className="grid gap-3 lg:grid-cols-7">
+          <div className="flex gap-3 overflow-x-auto pb-3">
             {statusOrder.map((status) => (
               <KanbanColumn key={status} status={status} applications={byStatus[status]} />
             ))}
@@ -85,10 +94,10 @@ function KanbanColumn({
   const { setNodeRef } = useDroppable({ id: `column:${status}` });
 
   return (
-    <section ref={setNodeRef} className="min-h-52 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-2">
-      <div className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-[var(--muted)]">{statusLabels[status]}</h2>
-        <span className="rounded-md bg-white px-1.5 py-0.5 text-xs font-semibold text-[var(--muted)]">{applications.length}</span>
+    <section ref={setNodeRef} className="min-h-64 w-[280px] shrink-0 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm">
+      <div className="mb-2 flex items-center justify-between rounded-lg bg-white px-2 py-2 shadow-sm">
+        <h2 className="text-xs font-bold uppercase tracking-wide text-[var(--muted-strong)]">{statusLabels[status]}</h2>
+        <span className="rounded-md bg-[var(--surface-strong)] px-1.5 py-0.5 text-xs font-bold text-[var(--muted-strong)]">{applications.length}</span>
       </div>
       <SortableContext items={applications.map((application) => application.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2">
@@ -118,7 +127,7 @@ function ApplicationCard({ application }: { application: ApplicationRecord }) {
     <article
       ref={setNodeRef}
       style={style}
-      className={`rounded-lg border border-[var(--line)] bg-white p-2 shadow-sm ${isDragging ? "opacity-70" : ""}`}
+      className={`rounded-lg border border-[var(--line)] bg-white p-2.5 shadow-sm transition hover:border-[var(--line-strong)] hover:shadow-md ${isDragging ? "opacity-70" : ""}`}
     >
       <div className="flex items-start gap-2">
         <button
@@ -131,7 +140,7 @@ function ApplicationCard({ application }: { application: ApplicationRecord }) {
           <GripVertical size={15} />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold text-[var(--accent)]">{job.company_name}</p>
+          <p className="truncate text-xs font-bold uppercase tracking-wide text-[var(--accent)]">{job.company_name}</p>
           <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-5">{job.job_title}</h3>
           <p className="mt-1 truncate text-xs text-[var(--muted)]">{compactLocation(job.location)}</p>
         </div>

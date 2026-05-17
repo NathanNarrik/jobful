@@ -1,36 +1,60 @@
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { BriefcaseBusiness, LayoutDashboard } from "lucide-react";
+import { clsx } from "clsx";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/discover" className="flex items-center gap-2 font-semibold text-[var(--foreground)]">
-            <span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--accent)] text-sm font-bold text-white">
-              JF
-            </span>
-            <span>Jobful</span>
+      <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/90 shadow-[0_1px_0_rgba(20,30,35,0.03)] backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+          <Link href="/discover" className="flex items-center gap-3 font-semibold text-[var(--foreground)]">
+            <Image src="/jobful-logo.svg" alt="Jobful" width={40} height={40} className="rounded-xl shadow-sm" priority />
+            <span className="text-lg tracking-tight">Jobful</span>
           </Link>
-          <nav className="flex items-center gap-1">
-            <Link
-              href="/discover"
-              className="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]"
-            >
-              <BriefcaseBusiness size={16} />
+          <nav className="flex items-center gap-1 rounded-lg border border-[var(--line)] bg-[var(--surface-soft)] p-1">
+            <NavLink href="/discover" active={pathname.startsWith("/discover")} icon={<BriefcaseBusiness size={16} />}>
               Discover
-            </Link>
-            <Link
-              href="/dashboard"
-              className="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]"
-            >
-              <LayoutDashboard size={16} />
+            </NavLink>
+            <NavLink href="/dashboard" active={pathname.startsWith("/dashboard")} icon={<LayoutDashboard size={16} />}>
               Dashboard
-            </Link>
+            </NavLink>
           </nav>
         </div>
       </header>
       {children}
     </div>
+  );
+}
+
+function NavLink({
+  href,
+  active,
+  icon,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={clsx(
+        "inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold transition",
+        active
+          ? "bg-white text-[var(--foreground)] shadow-sm"
+          : "text-[var(--muted)] hover:text-[var(--foreground)]",
+      )}
+    >
+      {icon}
+      <span className="hidden sm:inline">{children}</span>
+    </Link>
   );
 }
