@@ -1,6 +1,7 @@
 import type {
   ApplicationRecord,
   ApplicationStatus,
+  CompanySummary,
   JobDetail,
   PaginatedJobsResponse,
   SkillCount,
@@ -43,6 +44,10 @@ export function getJob(jobId: string) {
 
 export function listPopularSkills(limit = 18) {
   return apiFetch<SkillCount[]>("/skills/popular", { query: { limit } });
+}
+
+export function listCompanies() {
+  return apiFetch<CompanySummary[]>("/companies");
 }
 
 export function listApplications() {

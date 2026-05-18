@@ -49,6 +49,18 @@ export type SkillCount = {
   count: number;
 };
 
+export type CompanySummary = {
+  id: string;
+  name: string;
+  ats_provider: string;
+  career_page_url: string | null;
+  ats_board_token: string | null;
+  is_active: boolean;
+  last_scraped_at: string | null;
+  job_count: number;
+  active_job_count: number;
+};
+
 export type ApplicationStatus =
   | "SAVED"
   | "APPLIED"

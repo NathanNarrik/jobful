@@ -21,6 +21,7 @@ from extractors.oracle import OracleExtractor
 from extractors.smartrecruiters import SmartRecruitersExtractor
 from extractors.successfactors import SuccessFactorsExtractor
 from extractors.talentbrew import TalentBrewExtractor
+from extractors.usajobs import USAJobsExtractor
 from extractors.verizon import VerizonExtractor
 from extractors.walmart import WalmartExtractor
 from extractors.workday import WorkdayExtractor
@@ -100,6 +101,9 @@ class AtsRouter:
 
         if self._is_avature(hostname, path_parts):
             return AtsRoute("avature", self._hostname_token(hostname), AvatureRssExtractor, career_url)
+
+        if self._is_usajobs(hostname, path_parts):
+            return AtsRoute("usajobs", self._usajobs_token(hostname, parsed.query), USAJobsExtractor, career_url)
 
         if self._is_oracle_recruiting(hostname, path_parts):
             token = self._oracle_token(hostname, path_parts)
@@ -269,6 +273,17 @@ class AtsRouter:
 
     def _is_avature(self, hostname: str, path_parts: list[str]) -> bool:
         return hostname == "careers.twosigma.com" and "careers" in path_parts
+
+    def _is_usajobs(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname in {"www.usajobs.gov", "nasa.usajobs.gov"} and "Search" in path_parts and "Results" in path_parts
+
+    def _usajobs_token(self, hostname: str, query: str) -> str:
+        query_values = parse_qs(query)
+        departments = {value.upper() for value in query_values.get("d", [])}
+        agencies = {value.upper() for value in query_values.get("a", [])}
+        if hostname == "nasa.usajobs.gov" or "NN" in departments or "NN00" in agencies:
+            return "nasa"
+        raise UnsupportedAtsError("Could not determine USAJOBS board token")
 
     def _hostname_token(self, hostname: str) -> str:
         return hostname.split(".", maxsplit=1)[0]

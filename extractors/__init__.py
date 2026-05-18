@@ -13,6 +13,7 @@ from .oracle import OracleExtractor
 from .smartrecruiters import SmartRecruitersExtractor
 from .successfactors import SuccessFactorsExtractor
 from .talentbrew import TalentBrewExtractor
+from .usajobs import USAJobsExtractor
 from .verizon import VerizonExtractor
 from .walmart import WalmartExtractor
 from .workday import WorkdayExtractor
@@ -34,6 +35,7 @@ __all__ = [
     "SmartRecruitersExtractor",
     "SuccessFactorsExtractor",
     "TalentBrewExtractor",
+    "USAJobsExtractor",
     "VerizonExtractor",
     "WalmartExtractor",
     "WorkdayExtractor",

@@ -25,6 +25,7 @@ STRONG_CS_TITLE_TERMS = (
     "full stack",
     "fullstack",
     "ios engineer",
+    "information technology specialist",
     "machine learning",
     "ml engineer",
     "mobile engineer",

@@ -20,6 +20,7 @@ AtsProvider = Literal[
     "smartrecruiters",
     "successfactors",
     "talentbrew",
+    "usajobs",
     "avature",
     "mcloud",
     "verizon",

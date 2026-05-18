@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDiscoveryStore } from "@/stores/discovery-store";
 
 const programTypes = ["internship", "new_grad", "experienced", "other"];
@@ -29,8 +29,8 @@ const countries = [
 
 export function FilterBar() {
   const { filters, setFilter, loadJobs, popularSkills } = useDiscoveryStore();
-  const [searchDraft, setSearchDraft] = useState(filters.search);
   const [openFilter, setOpenFilter] = useState<string | null>(null);
+  const searchTimeout = useRef<number | null>(null);
   const skillOptions = useMemo(() => popularSkills.map((skill) => skill.skill), [popularSkills]);
 
   useEffect(() => {
@@ -43,12 +43,22 @@ export function FilterBar() {
   }, []);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setFilter("search", searchDraft);
+    return () => {
+      if (searchTimeout.current) {
+        window.clearTimeout(searchTimeout.current);
+      }
+    };
+  }, []);
+
+  function updateSearch(value: string) {
+    if (searchTimeout.current) {
+      window.clearTimeout(searchTimeout.current);
+    }
+    searchTimeout.current = window.setTimeout(() => {
+      setFilter("search", value);
       void loadJobs(0);
     }, 300);
-    return () => window.clearTimeout(timeout);
-  }, [loadJobs, searchDraft, setFilter]);
+  }
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setFilter(key, value);
@@ -56,7 +66,9 @@ export function FilterBar() {
   }
 
   function clearFilters() {
-    setSearchDraft("");
+    if (searchTimeout.current) {
+      window.clearTimeout(searchTimeout.current);
+    }
     for (const key of Object.keys(filters) as (keyof typeof filters)[]) {
       setFilter(key, "");
     }
@@ -65,7 +77,7 @@ export function FilterBar() {
 
   const activeFilterCount =
     Object.entries(filters).filter(([key, value]) => key !== "search" && Boolean(value)).length +
-    (searchDraft ? 1 : 0);
+    (filters.search ? 1 : 0);
 
   return (
     <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2.5 shadow-[0_8px_24px_rgba(25,35,40,0.045)]">
@@ -73,8 +85,9 @@ export function FilterBar() {
         <label className="relative h-10 min-w-[260px] flex-[1_1_330px] lg:max-w-[460px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
           <input
-            value={searchDraft}
-            onChange={(event) => setSearchDraft(event.target.value)}
+            key={filters.search}
+            defaultValue={filters.search}
+            onChange={(event) => updateSearch(event.target.value)}
             placeholder="Search title or company"
             className="focus-ring h-10 w-full min-w-0 rounded-lg border border-[var(--line)] bg-[var(--surface)] pl-9 pr-3 text-sm shadow-sm outline-none focus:border-[var(--accent)]"
           />

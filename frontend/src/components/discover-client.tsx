@@ -10,14 +10,18 @@ import { useApplicationStore } from "@/stores/application-store";
 import { useDiscoveryStore } from "@/stores/discovery-store";
 
 export function DiscoverClient() {
-  const { jobs, total, limit, offset, loading, error, loadJobs, loadSkills } = useDiscoveryStore();
+  const { jobs, total, limit, offset, loading, error, setFilter, loadJobs, loadSkills } = useDiscoveryStore();
   const { loadApplications } = useApplicationStore();
 
   useEffect(() => {
+    const companySearch = new URLSearchParams(window.location.search).get("search") ?? "";
+    if (companySearch) {
+      setFilter("search", companySearch);
+    }
     void loadSkills();
     void loadJobs(0);
     void loadApplications();
-  }, [loadApplications, loadJobs, loadSkills]);
+  }, [loadApplications, loadJobs, loadSkills, setFilter]);
 
   const nextOffset = offset + limit;
   const canGoBack = offset > 0;

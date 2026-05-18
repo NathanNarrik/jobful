@@ -36,6 +36,7 @@ class AshbyExtractor(BaseExtractor):
         "elliptic": "Elliptic",
         "langchain": "LangChain",
         "lambda": "Lambda",
+        "linear": "Linear",
         "mercor": "Mercor",
         "mistral": "Mistral AI",
         "modal": "Modal",
