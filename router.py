@@ -16,10 +16,13 @@ from extractors.google import GoogleExtractor
 from extractors.greenhouse import GreenhouseExtractor
 from extractors.lever import LeverExtractor
 from extractors.meta import MetaExtractor
+from extractors.mcloud import MCloudJobsExtractor
 from extractors.oracle import OracleExtractor
 from extractors.smartrecruiters import SmartRecruitersExtractor
 from extractors.successfactors import SuccessFactorsExtractor
 from extractors.talentbrew import TalentBrewExtractor
+from extractors.verizon import VerizonExtractor
+from extractors.walmart import WalmartExtractor
 from extractors.workday import WorkdayExtractor
 from models import JobListing
 
@@ -73,6 +76,15 @@ class AtsRouter:
 
         if self._is_apple(hostname, path_parts):
             return AtsRoute("apple", "apple", AppleExtractor, career_url)
+
+        if self._is_walmart(hostname, path_parts):
+            return AtsRoute("walmart", "walmart", WalmartExtractor, career_url)
+
+        if self._is_home_depot(hostname, path_parts):
+            return AtsRoute("mcloud", "homedepot", MCloudJobsExtractor, career_url)
+
+        if self._is_verizon(hostname, path_parts):
+            return AtsRoute("verizon", "verizon", VerizonExtractor, career_url)
 
         if self._is_eightfold(hostname, path_parts):
             return AtsRoute("eightfold", self._eightfold_token(hostname), EightfoldExtractor, career_url)
@@ -192,6 +204,15 @@ class AtsRouter:
     def _is_apple(self, hostname: str, path_parts: list[str]) -> bool:
         return hostname == "jobs.apple.com" and "search" in path_parts
 
+    def _is_walmart(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname == "careers.walmart.com" and "results" in path_parts
+
+    def _is_home_depot(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname == "careers.homedepot.com" and "job-search-results" in path_parts
+
+    def _is_verizon(self, hostname: str, path_parts: list[str]) -> bool:
+        return hostname == "mycareer.verizon.com" and "jobs" in path_parts
+
     def _is_eightfold(self, hostname: str, path_parts: list[str]) -> bool:
         return (
             hostname == "explore.jobs.netflix.net" and "careers" in path_parts
@@ -234,7 +255,13 @@ class AtsRouter:
         return hostname.split(".", maxsplit=1)[0]
 
     def _is_talentbrew(self, hostname: str, path_parts: list[str]) -> bool:
-        return hostname in {"careers.arm.com", "careers.blackrock.com", "jobs.citi.com", "jobs.intuit.com"} and "search-jobs" in path_parts
+        return hostname in {
+            "careers.arm.com",
+            "careers.blackrock.com",
+            "careers.unitedhealthgroup.com",
+            "jobs.citi.com",
+            "jobs.intuit.com",
+        } and "search-jobs" in path_parts
 
     def _is_avature(self, hostname: str, path_parts: list[str]) -> bool:
         return hostname == "careers.twosigma.com" and "careers" in path_parts

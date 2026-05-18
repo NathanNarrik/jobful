@@ -75,6 +75,7 @@ export type DiscoveryFilters = {
   search: string;
   program_type: string;
   grad_year: string;
+  country: string;
   remote_type: string;
   visa_status: string;
   skill: string;

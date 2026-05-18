@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Bookmark, BriefcaseBusiness, CalendarDays, Clock, ExternalLink, GraduationCap, MapPin, RefreshCw, Sparkles, X } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -15,14 +15,14 @@ export function JobDetailDrawer() {
   return (
     <div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px]" onClick={closeJob}>
       <aside
-        className="ml-auto flex h-full w-full max-w-3xl flex-col bg-white shadow-2xl ring-1 ring-black/5"
+        className="ml-auto flex h-full w-full max-w-3xl flex-col bg-[var(--surface)] shadow-2xl ring-1 ring-white/10"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="border-b border-[var(--line)] bg-[var(--surface-soft)] p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-start gap-3">
               {activeJob ? (
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[var(--accent-soft)] text-sm font-bold text-[var(--accent-strong)] shadow-sm ring-1 ring-teal-100">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[var(--accent-soft)] text-sm font-bold text-[var(--accent-strong)] shadow-sm ring-1 ring-teal-300/20">
                   {companyInitials(activeJob.company_name)}
                 </div>
               ) : null}
@@ -38,7 +38,7 @@ export function JobDetailDrawer() {
                 ) : null}
               </div>
             </div>
-            <button className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-transparent hover:border-[var(--line)] hover:bg-white" onClick={closeJob}>
+            <button className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-transparent hover:border-[var(--line)] hover:bg-[var(--surface-strong)]" onClick={closeJob}>
               <X size={18} />
             </button>
           </div>
@@ -58,12 +58,12 @@ export function JobDetailDrawer() {
               <dl className="grid gap-3 text-sm sm:grid-cols-2">
                 <Field icon={<MapPin size={16} />} label="Location" value={activeJob.location.join("; ")} />
                 <Field icon={<CalendarDays size={16} />} label="Posted" value={`${daysSinceLabel(activeJob.date_posted ?? activeJob.last_seen_at)} (${shortDate(activeJob.date_posted ?? activeJob.last_seen_at)})`} />
-                <Field icon={<RefreshCw size={16} />} label="Seen by Jobful" value={`First ${shortDate(activeJob.first_seen_at)} · latest ${shortDate(activeJob.last_seen_at)}`} />
+                <Field icon={<RefreshCw size={16} />} label="Seen by Jobful" value={`First ${shortDate(activeJob.first_seen_at)} | latest ${shortDate(activeJob.last_seen_at)}`} />
                 <Field icon={<GraduationCap size={16} />} label="Academic levels" value={activeJob.academic_levels.join(", ") || "Not specified"} />
                 <Field icon={<Sparkles size={16} />} label="Skills" value={activeJob.required_skills.slice(0, 12).join(", ") || "Not specified"} wide />
-                <Field icon={<BriefcaseBusiness size={16} />} label="ATS" value={`${titleCase(activeJob.ats_provider)} · ${activeJob.ats_job_id}`} />
+                <Field icon={<BriefcaseBusiness size={16} />} label="ATS" value={`${titleCase(activeJob.ats_provider)} | ${activeJob.ats_job_id}`} />
               </dl>
-              <section className="mt-5 rounded-xl border border-[var(--line)] bg-white shadow-sm">
+              <section className="mt-5 rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-sm">
                 <div className="border-b border-[var(--line)] px-4 py-3">
                   <h3 className="text-sm font-semibold">Description</h3>
                 </div>
@@ -72,7 +72,7 @@ export function JobDetailDrawer() {
                 </p>
               </section>
             </div>
-            <div className="flex flex-col gap-2 border-t border-[var(--line)] bg-white p-4 shadow-[0_-10px_30px_rgba(25,35,40,0.04)] sm:flex-row">
+            <div className="flex flex-col gap-2 border-t border-[var(--line)] bg-[var(--surface)] p-4 shadow-[0_-10px_30px_rgba(25,35,40,0.04)] sm:flex-row">
               <button
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--line)] px-4 text-sm font-semibold hover:bg-[var(--surface-strong)]"
                 onClick={() => void trackJob(activeJob.id, "SAVED")}
@@ -85,7 +85,7 @@ export function JobDetailDrawer() {
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => void trackJob(activeJob.id, "APPLIED")}
-                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[var(--accent-strong)]"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-[#061018] shadow-sm hover:bg-[var(--accent-strong)]"
               >
                 <ExternalLink size={16} />
                 Apply on {activeJob.company_name}
@@ -121,7 +121,7 @@ function Field({
   wide?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border border-[var(--line)] bg-white p-3 shadow-sm ${wide ? "sm:col-span-2" : ""}`}>
+    <div className={`rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 shadow-sm ${wide ? "sm:col-span-2" : ""}`}>
       <dt className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
         {icon}
         {label}

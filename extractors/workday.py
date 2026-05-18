@@ -29,10 +29,16 @@ class WorkdayExtractor(BaseExtractor):
         "amd": "AMD",
         "arm": "Arm Holdings",
         "cisco": "Cisco Systems",
+        "cvshealth": "CVS Health",
+        "fedex": "FedEx",
+        "ghr": "Bank of America",
         "intuit": "Intuit",
         "paloaltonetworks": "Palo Alto Networks",
         "qualcomm": "Qualcomm",
+        "target": "Target",
         "ti": "Texas Instruments",
+        "tysonfoods": "Tyson Foods",
+        "uhg": "UnitedHealth Group",
         "vmware": "VMware",
         "zoom": "Zoom Video Communications",
     }
@@ -51,21 +57,33 @@ class WorkdayExtractor(BaseExtractor):
             raise ExtractionError("No Workday job payloads discovered")
 
         listings: list[JobListing] = []
+        skipped_count = 0
         for job in jobs:
             if not isinstance(job, dict):
-                raise ExtractionError("Workday job payload is not an object", raw_payload=job)
+                skipped_count += 1
+                self.logger.warning("Skipping non-object Workday payload on board %s", self.board_token)
+                continue
 
             try:
                 listings.append(self._map_job(job))
             except (KeyError, TypeError, ValidationError, ValueError) as exc:
-                self.logger.error(
-                    "Failed mapping Workday job on board %s",
+                skipped_count += 1
+                self.logger.warning(
+                    "Skipping malformed Workday job on board %s",
                     self.board_token,
                     exc_info=True,
                 )
-                raise ExtractionError("Malformed Workday job payload", raw_payload=job) from exc
+                continue
 
-        self.logger.info("Fetched %s Workday jobs", len(listings), extra={"company": self.board_token})
+        if not listings:
+            raise ExtractionError("No valid Workday jobs after mapping", raw_payload=jobs[:3])
+
+        self.logger.info(
+            "Fetched %s Workday jobs; skipped %s malformed payloads",
+            len(listings),
+            skipped_count,
+            extra={"company": self.board_token},
+        )
         return listings
 
     def _fetch_direct_cxs_jobs(self, source_url: str) -> list[dict[str, Any]]:
@@ -229,7 +247,7 @@ class WorkdayExtractor(BaseExtractor):
         return self.COMPANY_BY_TOKEN.get(self.board_token, self.board_token.replace("-", " ").title())
 
     def _date_posted(self, job: dict[str, Any]) -> datetime | None:
-        for key in ("startDate", "postedOn", "postedDate", "datePosted"):
+        for key in ("postedOn", "postedDate", "datePosted", "startDate"):
             value = job.get(key)
             parsed = self._parse_datetime(value)
             if parsed is not None:
@@ -265,10 +283,19 @@ class WorkdayExtractor(BaseExtractor):
         raise KeyError("id")
 
     def _job_title(self, job: dict[str, Any]) -> str:
-        for key in ("title", "jobTitle", "name"):
+        for key in ("title", "jobTitle", "name", "postingTitle", "displayTitle", "positionTitle"):
             value = job.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
+
+        external_path = job.get("externalPath")
+        if isinstance(external_path, str) and external_path.strip():
+            slug = external_path.rstrip("/").split("/")[-1]
+            title = re.sub(r"[_-]+", " ", slug)
+            title = re.sub(r"\bR\d+\b$", "", title, flags=re.IGNORECASE).strip()
+            if title:
+                return title
+
         raise KeyError("title")
 
     def _job_url(self, job: dict[str, Any], job_id: str) -> str:

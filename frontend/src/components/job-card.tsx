@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Bookmark, Clock, ExternalLink, GraduationCap, MapPin } from "lucide-react";
 import type { JobListItem } from "@/types";
@@ -19,7 +19,7 @@ export function JobCard({ job }: { job: JobListItem }) {
 
   return (
     <article
-      className="grid min-h-[178px] cursor-pointer grid-rows-[auto_1fr_auto] rounded-lg border border-[var(--line)] bg-white p-3 shadow-sm transition hover:border-[var(--accent)] hover:shadow-md"
+      className="grid min-h-[178px] cursor-pointer grid-rows-[auto_1fr_auto] rounded-lg border border-[var(--line)] bg-[var(--surface)] p-3 shadow-sm transition hover:border-[var(--accent)] hover:shadow-md"
       onClick={() => void openJob(job.id)}
     >
       <div className="flex items-start gap-3">
@@ -67,7 +67,7 @@ export function JobCard({ job }: { job: JobListItem }) {
           target="_blank"
           rel="noreferrer"
           onClick={applyNow}
-          className="inline-flex h-8 items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 text-xs font-semibold text-white hover:bg-[var(--accent-strong)]"
+          className="inline-flex h-8 items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 text-xs font-semibold text-[#061018] hover:bg-[var(--accent-strong)]"
         >
           <ExternalLink size={14} />
           Apply

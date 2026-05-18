@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from db.engine import create_jobful_engine
 from db.models import Base, Company, Job, utc_now
 from models import NormalizationResult, NormalizedJobRecord
+from normalizers.relevance import is_cs_relevant_job, is_cs_relevant_record
 
 
 @dataclass(frozen=True)
@@ -107,7 +108,7 @@ def upsert_job(session: Session, record: NormalizedJobRecord, company: Company) 
             if key not in {"id", "first_seen_at"}:
                 setattr(existing, key, value)
         existing.last_seen_at = utc_now()
-        existing.is_active = True
+        existing.is_active = bool(values["is_active"])
         session.flush()
         return False
 
@@ -138,7 +139,7 @@ def job_values(record: NormalizedJobRecord, company: Company) -> dict[str, Any]:
         "extracted_at": job.extracted_at,
         "first_seen_at": now,
         "last_seen_at": now,
-        "is_active": True,
+        "is_active": is_cs_relevant_normalized_record(record),
         "program_type": normalization.program_type,
         "academic_levels": normalization.academic_levels,
         "degree_requirements": normalization.degree_requirements,
@@ -183,7 +184,7 @@ def import_payload(session: Session, payload: dict[str, Any], *, batch_size: int
                 if key not in {"id", "content_hash", "first_seen_at"}
             }
             update_values["last_seen_at"] = utc_now()
-            update_values["is_active"] = True
+            update_values["is_active"] = stmt.excluded["is_active"]
             session.execute(
                 stmt.on_conflict_do_update(
                     index_elements=[Job.content_hash],
@@ -200,7 +201,7 @@ def import_payload(session: Session, payload: dict[str, Any], *, batch_size: int
                     if key not in {"id", "content_hash", "first_seen_at"}:
                         setattr(existing, key, item)
                 existing.last_seen_at = utc_now()
-                existing.is_active = True
+                existing.is_active = bool(value["is_active"])
 
     session.commit()
     inserted = sum(1 for content_hash in content_hashes if content_hash not in existing_hashes)
@@ -266,7 +267,7 @@ def job_values_from_payload(record: dict[str, Any], company: Company) -> dict[st
         "extracted_at": parse_datetime(job["extracted_at"]) or now,
         "first_seen_at": now,
         "last_seen_at": now,
-        "is_active": True,
+        "is_active": is_cs_relevant_record(record),
         "program_type": normalization["program_type"],
         "academic_levels": normalization.get("academic_levels") or [],
         "degree_requirements": normalization.get("degree_requirements") or [],
@@ -290,6 +291,16 @@ def parse_datetime(value: Any) -> datetime | None:
     if value is None or isinstance(value, datetime):
         return value
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+
+def is_cs_relevant_normalized_record(record: NormalizedJobRecord) -> bool:
+    return is_cs_relevant_job(
+        title=record.job.job_title,
+        departments=record.job.departments,
+        required_skills=record.normalization.required_skills,
+        nice_to_have_skills=record.normalization.nice_to_have_skills,
+        description=record.cleaned_description or record.job.raw_description or "",
+    )
 
 
 def fetch_existing_hashes(session: Session, content_hashes: list[str], *, batch_size: int = 5000) -> set[str]:
@@ -331,7 +342,7 @@ def import_result_postgres(session: Session, result: NormalizationResult) -> Imp
                 if key not in {"id", "content_hash", "first_seen_at"}
             }
             update_values["last_seen_at"] = utc_now()
-            update_values["is_active"] = True
+            update_values["is_active"] = stmt.excluded["is_active"]
             result_proxy = session.execute(
                 stmt.on_conflict_do_update(
                     index_elements=[Job.content_hash],

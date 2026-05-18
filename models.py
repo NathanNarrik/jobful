@@ -21,6 +21,9 @@ AtsProvider = Literal[
     "successfactors",
     "talentbrew",
     "avature",
+    "mcloud",
+    "verizon",
+    "walmart",
 ]
 
 

@@ -114,6 +114,23 @@ class Phase4Tests(unittest.TestCase):
             self.assertEqual(session.scalar(select(Job).where(Job.content_hash == "b" * 64)).job_title, "Updated Internship")
             self.assertEqual(session.scalar(select(Company).where(Company.name == "ExampleCo")).name, "ExampleCo")
 
+    def test_import_marks_non_cs_jobs_inactive(self) -> None:
+        non_cs = sample_record(
+            job_title="Retail Sales Associate",
+            raw_description="Help customers in store.",
+            departments=["Stores"],
+            content_hash="c" * 64,
+        )
+        non_cs.cleaned_description = "Help customers in store."
+        non_cs.normalization.required_skills = []
+        non_cs.normalization.nice_to_have_skills = []
+
+        with Session(self.engine) as session:
+            import_result(session, sample_result([non_cs]))
+
+            job = session.scalar(select(Job).where(Job.content_hash == "c" * 64))
+            self.assertFalse(job.is_active)
+
     def test_health_and_jobs_filters(self) -> None:
         with Session(self.engine) as session:
             import_result(session, sample_result())
@@ -137,6 +154,44 @@ class Phase4Tests(unittest.TestCase):
 
         self.assertEqual(jobs["total"], 1)
         self.assertEqual(jobs["items"][0]["job_title"], "Software Engineering Intern, Summer 2026")
+
+    def test_jobs_filter_grad_year_includes_unrestricted_student_roles_and_country(self) -> None:
+        unrestricted = sample_record(
+            content_hash="c" * 64,
+            job_title="Software Engineering Intern, Summer 2027",
+            location=["Toronto, Canada"],
+            date_posted=datetime(2026, 5, 2, tzinfo=UTC),
+        )
+        unrestricted.normalization.required_grad_years = []
+        unrestricted.normalization.program_type = "internship"
+
+        with Session(self.engine) as session:
+            import_result(session, sample_result([unrestricted]))
+
+        jobs = self.client.get("/jobs?grad_year=2030&country=Canada").json()
+
+        self.assertEqual(jobs["total"], 1)
+        self.assertEqual(jobs["items"][0]["job_title"], "Software Engineering Intern, Summer 2027")
+
+    def test_jobs_default_to_newest_posted_first(self) -> None:
+        old = sample_record(
+            content_hash="d" * 64,
+            job_title="Older Software Engineering Internship",
+            date_posted=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        recent = sample_record(
+            content_hash="e" * 64,
+            job_title="Newer Software Engineering Internship",
+            date_posted=datetime(2026, 5, 1, tzinfo=UTC),
+        )
+
+        with Session(self.engine) as session:
+            import_result(session, sample_result([old, recent]))
+
+        jobs = self.client.get("/jobs?limit=2").json()
+
+        self.assertEqual(jobs["items"][0]["job_title"], "Newer Software Engineering Internship")
+        self.assertEqual(jobs["items"][1]["job_title"], "Older Software Engineering Internship")
 
     def test_job_detail_companies_stats_and_skills(self) -> None:
         with Session(self.engine) as session:

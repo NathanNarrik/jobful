@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f7f8;
-  --foreground: #15191d;
-  --surface: #ffffff;
-  --surface-strong: #eef3f2;
-  --surface-soft: #f9fbfb;
-  --line: #d7dedf;
-  --line-strong: #bdc9ca;
-  --muted: #647176;
-  --muted-strong: #465258;
-  --accent: #0f766e;
-  --accent-strong: #0b5f59;
-  --accent-soft: #e3f4f1;
-  --blue: #275f99;
-  --blue-soft: #e8f0f8;
-  --warning: #9a5b13;
-  --warning-soft: #fff5df;
-  --danger: #a73737;
+  --background: #0e1018;
+  --foreground: #f7f8fb;
+  --surface: #171a25;
+  --surface-strong: #202432;
+  --surface-soft: #12151f;
+  --line: #2b3142;
+  --line-strong: #46506a;
+  --muted: #9aa4b5;
+  --muted-strong: #c5ccda;
+  --accent: #2dd4bf;
+  --accent-strong: #67e8f9;
+  --accent-soft: #123a3e;
+  --blue: #a78bfa;
+  --blue-soft: #2c254a;
+  --warning: #f5c451;
+  --warning-soft: #3a2c12;
+  --danger: #fb7185;
 }
 
 @theme inline {
@@ -32,6 +32,17 @@ body {
   color: var(--foreground);
   font-family: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   text-rendering: optimizeLegibility;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(135deg, rgba(45, 212, 191, 0.09), transparent 32%),
+    linear-gradient(315deg, rgba(167, 139, 250, 0.11), transparent 36%),
+    var(--background);
 }
 
 button,

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ArrowUpRight, BriefcaseBusiness, CalendarDays, Search, Table2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -9,13 +9,13 @@ import { useApplicationStore } from "@/stores/application-store";
 import type { ApplicationRecord, ApplicationStatus } from "@/types";
 
 const statusTone: Record<ApplicationStatus, string> = {
-  SAVED: "bg-slate-50 text-slate-700 ring-slate-200",
-  APPLIED: "bg-teal-50 text-teal-800 ring-teal-200",
-  PHONE_SCREEN: "bg-sky-50 text-sky-800 ring-sky-200",
-  TECHNICAL: "bg-indigo-50 text-indigo-800 ring-indigo-200",
-  FINAL: "bg-violet-50 text-violet-800 ring-violet-200",
-  OFFER: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  REJECTED: "bg-rose-50 text-rose-800 ring-rose-200",
+  SAVED: "bg-slate-400/10 text-slate-200 ring-slate-300/25",
+  APPLIED: "bg-teal-300/12 text-teal-100 ring-teal-300/30",
+  PHONE_SCREEN: "bg-cyan-300/12 text-cyan-100 ring-cyan-300/30",
+  TECHNICAL: "bg-indigo-300/12 text-indigo-100 ring-indigo-300/30",
+  FINAL: "bg-violet-300/12 text-violet-100 ring-violet-300/30",
+  OFFER: "bg-emerald-300/12 text-emerald-100 ring-emerald-300/30",
+  REJECTED: "bg-rose-300/12 text-rose-100 ring-rose-300/30",
 };
 
 export function DashboardClient() {
@@ -80,9 +80,9 @@ export function DashboardClient() {
         </div>
       </div>
 
-      {error ? <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div> : null}
+      {error ? <div className="mb-3 rounded-md border border-rose-300/30 bg-rose-400/10 p-3 text-sm text-rose-100">{error}</div> : null}
 
-      <section className="overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface)] shadow-sm">
         <div className="grid gap-2 border-b border-[var(--line)] bg-[var(--surface-soft)] p-2 lg:grid-cols-[minmax(260px,1fr)_auto]">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={15} />
@@ -90,7 +90,7 @@ export function DashboardClient() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search tracked roles"
-              className="h-9 w-full rounded-md border border-[var(--line)] bg-white pl-8 pr-3 text-sm outline-none focus:border-[var(--accent)]"
+              className="h-9 w-full rounded-md border border-[var(--line)] bg-[var(--surface)] pl-8 pr-3 text-sm outline-none focus:border-[var(--accent)]"
             />
           </label>
           <div className="flex gap-1 overflow-x-auto">
@@ -108,7 +108,7 @@ export function DashboardClient() {
         {loading && !applications.length ? (
           <div className="divide-y divide-[var(--line)]">
             {Array.from({ length: 10 }).map((_, index) => (
-              <div key={index} className="h-14 animate-pulse bg-white even:bg-[var(--surface-soft)]" />
+              <div key={index} className="h-14 animate-pulse bg-[var(--surface)] even:bg-[var(--surface-soft)]" />
             ))}
           </div>
         ) : (
@@ -126,7 +126,7 @@ export function DashboardClient() {
                 <col className="w-[12%]" />
                 <col className="w-[3%]" />
               </colgroup>
-              <thead className="sticky top-0 z-10 bg-white text-[11px] uppercase tracking-wide text-[var(--muted)] shadow-[0_1px_0_var(--line)]">
+              <thead className="sticky top-0 z-10 bg-[var(--surface)] text-[11px] uppercase tracking-wide text-[var(--muted)] shadow-[0_1px_0_var(--line)]">
                 <tr>
                   <th className="px-2 py-2 font-bold">#</th>
                   <th className="px-2 py-2 font-bold">Status</th>
@@ -167,7 +167,7 @@ export function DashboardClient() {
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="flex h-12 items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 shadow-sm">
+    <div className="flex h-12 items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 shadow-sm">
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[var(--blue-soft)] text-[var(--blue)]">{icon}</span>
       <span className="min-w-0">
         <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">{label}</span>
@@ -193,7 +193,7 @@ function FilterButton({
       className={`inline-flex h-9 shrink-0 items-center gap-1 rounded-md border px-2.5 text-xs font-semibold transition ${
         active
           ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-          : "border-[var(--line)] bg-white text-[var(--muted-strong)] hover:border-[var(--line-strong)]"
+          : "border-[var(--line)] bg-[var(--surface)] text-[var(--muted-strong)] hover:border-[var(--line-strong)]"
       }`}
     >
       {children}
@@ -216,7 +216,7 @@ function ApplicationRow({
   if (!job) return null;
 
   return (
-    <tr className="group bg-white align-middle transition hover:bg-[var(--surface-soft)]">
+    <tr className="group bg-[var(--surface)] align-middle transition hover:bg-[var(--surface-soft)]">
       <td className="border-b border-[var(--line)] px-2 py-2 text-xs tabular-nums text-[var(--muted)]">{index + 1}</td>
       <td className="border-b border-[var(--line)] px-2 py-2">
         <select
@@ -255,7 +255,7 @@ function ApplicationRow({
           defaultValue={application.notes ?? ""}
           onBlur={(event) => void onSaveNotes(application.id, event.currentTarget.value)}
           placeholder="Notes"
-          className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-xs outline-none transition placeholder:text-[var(--muted)] hover:border-[var(--line)] hover:bg-white focus:border-[var(--accent)] focus:bg-white"
+          className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-xs outline-none transition placeholder:text-[var(--muted)] hover:border-[var(--line)] hover:bg-[var(--surface-strong)] focus:border-[var(--accent)] focus:bg-[var(--surface)]"
         />
       </td>
       <td className="border-b border-[var(--line)] px-1 py-2 text-right">

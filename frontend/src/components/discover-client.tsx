@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ChevronLeft, ChevronRight, Database, Sparkles, Zap } from "lucide-react";
 import { useEffect } from "react";
@@ -43,22 +43,22 @@ export function DiscoverClient() {
         </div>
         <div className="mb-3 flex items-center justify-end gap-2">
             <button
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-white shadow-sm transition hover:bg-[var(--surface-soft)]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface)] shadow-sm transition hover:bg-[var(--surface-soft)]"
               disabled={!canGoBack || loading}
               onClick={() => void loadJobs(Math.max(0, offset - limit))}
             >
               <ChevronLeft size={16} />
             </button>
             <button
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-white shadow-sm transition hover:bg-[var(--surface-soft)]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface)] shadow-sm transition hover:bg-[var(--surface-soft)]"
               disabled={!canGoNext || loading}
               onClick={() => void loadJobs(nextOffset)}
             >
               <ChevronRight size={16} />
             </button>
         </div>
-        {error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div> : null}
-        <section className="overflow-hidden rounded-xl border border-[var(--line)] bg-white shadow-[0_10px_30px_rgba(25,35,40,0.06)]">
+        {error ? <div className="rounded-md border border-rose-300/30 bg-rose-400/10 p-3 text-sm text-rose-100">{error}</div> : null}
+        <section className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-[0_10px_30px_rgba(25,35,40,0.06)]">
           <div className="hidden grid-cols-[minmax(260px,1.5fr)_minmax(160px,0.8fr)_minmax(220px,1.1fr)_auto] border-b border-[var(--line)] bg-[var(--surface-soft)] px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--muted)] md:grid">
             <span>Role</span>
             <span>Fit</span>
@@ -67,7 +67,7 @@ export function DiscoverClient() {
           </div>
           {loading && !jobs.length
             ? Array.from({ length: 10 }).map((_, index) => (
-                <div key={index} className="h-20 animate-pulse border-b border-[var(--line)] bg-white" />
+                <div key={index} className="h-20 animate-pulse border-b border-[var(--line)] bg-[var(--surface)]" />
               ))
             : jobs.map((job) => <JobRow key={job.id} job={job} />)}
         </section>
@@ -80,7 +80,7 @@ export function DiscoverClient() {
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex h-12 items-center gap-3 rounded-xl border border-[var(--line)] bg-white px-3 shadow-sm">
+    <div className="flex h-12 items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 shadow-sm">
       <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">{icon}</span>
       <span>
         <span className="block text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">{label}</span>

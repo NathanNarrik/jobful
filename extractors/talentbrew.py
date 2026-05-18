@@ -22,6 +22,7 @@ class TalentBrewExtractor(BaseExtractor):
     COMPANY_BY_HOST = {
         "careers.arm.com": "Arm Holdings",
         "careers.blackrock.com": "BlackRock",
+        "careers.unitedhealthgroup.com": "UnitedHealth Group",
         "jobs.intuit.com": "Intuit",
         "jobs.citi.com": "Citi",
     }

@@ -8,10 +8,13 @@ from .greenhouse import GreenhouseExtractor
 from .google import GoogleExtractor
 from .lever import LeverExtractor
 from .meta import MetaExtractor
+from .mcloud import MCloudJobsExtractor
 from .oracle import OracleExtractor
 from .smartrecruiters import SmartRecruitersExtractor
 from .successfactors import SuccessFactorsExtractor
 from .talentbrew import TalentBrewExtractor
+from .verizon import VerizonExtractor
+from .walmart import WalmartExtractor
 from .workday import WorkdayExtractor
 
 __all__ = [
@@ -26,9 +29,12 @@ __all__ = [
     "GreenhouseExtractor",
     "LeverExtractor",
     "MetaExtractor",
+    "MCloudJobsExtractor",
     "OracleExtractor",
     "SmartRecruitersExtractor",
     "SuccessFactorsExtractor",
     "TalentBrewExtractor",
+    "VerizonExtractor",
+    "WalmartExtractor",
     "WorkdayExtractor",
 ]

@@ -14,6 +14,7 @@ from models import JobListing, PullResult
 from normalizers.cleaner import clean_description
 from normalizers.ollama import normalize_with_ollama
 from normalizers.pipeline import normalize_jobs
+from normalizers.relevance import is_cs_relevant_job
 from tasks import extract_and_normalize_source, normalize_jobs_task
 
 
@@ -110,6 +111,96 @@ class Phase3Tests(unittest.TestCase):
         self.assertNotIn("rust", result.records[0].normalization.required_skills)
         self.assertNotIn("go", result.records[0].normalization.required_skills)
         self.assertEqual(result.records[0].normalization.program_type, "other")
+
+    def test_cs_relevance_filters_retail_but_keeps_technical_roles(self) -> None:
+        self.assertTrue(
+            is_cs_relevant_job(
+                title="Software Engineer Intern",
+                departments=["Engineering"],
+                required_skills=["python"],
+                description="Build backend services.",
+            )
+        )
+        self.assertTrue(
+            is_cs_relevant_job(
+                title="Machine Learning Engineer",
+                departments=["Data Science"],
+                required_skills=[],
+                description="Train production models.",
+            )
+        )
+        self.assertTrue(
+            is_cs_relevant_job(
+                title="Solutions Architect",
+                departments=["Cloud Engineering"],
+                required_skills=["aws"],
+                description="Design distributed systems for enterprise customers.",
+            )
+        )
+        self.assertTrue(
+            is_cs_relevant_job(
+                title="Software Development Engineer in Test - Retail Engineering",
+                departments=["Software and Services"],
+                required_skills=[],
+                description="Build automation for release quality.",
+            )
+        )
+        self.assertTrue(
+            is_cs_relevant_job(
+                title="Data Analyst",
+                departments=["Data Science"],
+                required_skills=["sql"],
+                description="Analyze product telemetry.",
+            )
+        )
+        self.assertTrue(
+            is_cs_relevant_job(
+                title="Front-End Software Engineer",
+                departments=["Software Engineering"],
+                required_skills=["react"],
+                description="Build product UI.",
+            )
+        )
+        self.assertFalse(
+            is_cs_relevant_job(
+                title="Retail Sales Associate",
+                departments=["Stores"],
+                required_skills=[],
+                description="Help customers in store.",
+            )
+        )
+        self.assertFalse(
+            is_cs_relevant_job(
+                title="2nd Shift Quality Inspector",
+                departments=["Engineering"],
+                required_skills=[],
+                description="Inspect manufacturing parts.",
+            )
+        )
+        self.assertFalse(
+            is_cs_relevant_job(
+                title="Accountant, International",
+                departments=["Finance"],
+                required_skills=["sql"],
+                description="Prepare journal entries and reconcile accounts.",
+            )
+        )
+        self.assertFalse(
+            is_cs_relevant_job(
+                title="Customer Success Manager II, Retail",
+                departments=["Customer Experience"],
+                required_skills=[],
+                description="Manage customer relationships.",
+            )
+        )
+        self.assertFalse(
+            is_cs_relevant_job(
+                title="Front End Service Team Supervisor",
+                departments=["Store Operations"],
+                required_skills=[],
+                description="Lead checkout associates.",
+            )
+        )
 
     def test_phase3_cli_writes_normalized_artifact(self) -> None:
         pull = PullResult(

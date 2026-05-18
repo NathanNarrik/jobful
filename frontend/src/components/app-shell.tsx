@@ -11,7 +11,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/90 shadow-[0_1px_0_rgba(20,30,35,0.03)] backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-[var(--surface)]/88 shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/discover" className="flex items-center gap-3 font-semibold text-[var(--foreground)]">
             <Image src="/jobful-logo.svg" alt="Jobful" width={40} height={40} className="rounded-xl shadow-sm" priority />
@@ -49,7 +49,7 @@ function NavLink({
       className={clsx(
         "inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold transition",
         active
-          ? "bg-white text-[var(--foreground)] shadow-sm"
+          ? "bg-[var(--surface-strong)] text-[var(--foreground)] shadow-sm"
           : "text-[var(--muted)] hover:text-[var(--foreground)]",
       )}
     >

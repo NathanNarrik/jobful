@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Bookmark, Clock, ExternalLink, GraduationCap, MapPin } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -19,11 +19,11 @@ export function JobRow({ job }: { job: JobListItem }) {
 
   return (
     <article
-      className="grid cursor-pointer gap-3 border-b border-[var(--line)] bg-white px-4 py-3 transition hover:bg-[var(--surface-soft)] hover:shadow-[inset_3px_0_0_var(--accent)] md:grid-cols-[minmax(260px,1.5fr)_minmax(160px,0.8fr)_minmax(220px,1.1fr)_auto] md:items-center"
+      className="grid cursor-pointer gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-3 transition hover:bg-[var(--surface-soft)] hover:shadow-[inset_3px_0_0_var(--accent)] md:grid-cols-[minmax(260px,1.5fr)_minmax(160px,0.8fr)_minmax(220px,1.1fr)_auto] md:items-center"
       onClick={() => void openJob(job.id)}
     >
       <div className="flex min-w-0 items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-xs font-bold text-[var(--accent-strong)] ring-1 ring-inset ring-teal-100">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-xs font-bold text-[var(--accent-strong)] ring-1 ring-inset ring-teal-300/20">
           {companyInitials(job.company_name)}
         </div>
         <div className="min-w-0">
@@ -59,7 +59,7 @@ export function JobRow({ job }: { job: JobListItem }) {
       <div className="flex items-center gap-2 md:justify-end">
         <button
           type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--line)] text-[var(--muted)] hover:bg-white"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--line)] text-[var(--muted)] hover:bg-[var(--surface-strong)]"
           title="Save job"
           onClick={(event) => {
             event.stopPropagation();
@@ -73,7 +73,7 @@ export function JobRow({ job }: { job: JobListItem }) {
           target="_blank"
           rel="noreferrer"
           onClick={applyNow}
-          className="inline-flex h-8 items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 text-xs font-semibold text-white hover:bg-[var(--accent-strong)]"
+          className="inline-flex h-8 items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 text-xs font-semibold text-[#061018] hover:bg-[var(--accent-strong)]"
         >
           <ExternalLink size={14} />
           Apply

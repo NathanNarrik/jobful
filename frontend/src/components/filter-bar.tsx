@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -8,6 +8,24 @@ const programTypes = ["internship", "new_grad", "experienced", "other"];
 const remoteTypes = ["remote", "hybrid", "onsite", "unknown"];
 const visaStatuses = ["sponsors", "opt_cpt_allowed", "requires_authorization", "does_not_sponsor", "not_mentioned"];
 const gradYears = ["2026", "2027", "2028", "2029", "2030"];
+const countries = [
+  "United States",
+  "Canada",
+  "India",
+  "United Kingdom",
+  "Ireland",
+  "Germany",
+  "France",
+  "Netherlands",
+  "Spain",
+  "Singapore",
+  "Australia",
+  "Japan",
+  "China",
+  "Taiwan",
+  "South Korea",
+  "Israel",
+];
 
 export function FilterBar() {
   const { filters, setFilter, loadJobs, popularSkills } = useDiscoveryStore();
@@ -50,7 +68,7 @@ export function FilterBar() {
     (searchDraft ? 1 : 0);
 
   return (
-    <div className="rounded-xl border border-[var(--line)] bg-white p-2.5 shadow-[0_8px_24px_rgba(25,35,40,0.045)]">
+    <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2.5 shadow-[0_8px_24px_rgba(25,35,40,0.045)]">
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative h-10 min-w-[260px] flex-[1_1_330px] lg:max-w-[460px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
@@ -58,12 +76,12 @@ export function FilterBar() {
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
             placeholder="Search title or company"
-            className="focus-ring h-10 w-full min-w-0 rounded-lg border border-[var(--line)] bg-white pl-9 pr-3 text-sm shadow-sm outline-none focus:border-[var(--accent)]"
+            className="focus-ring h-10 w-full min-w-0 rounded-lg border border-[var(--line)] bg-[var(--surface)] pl-9 pr-3 text-sm shadow-sm outline-none focus:border-[var(--accent)]"
           />
         </label>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-3 2xl:grid-cols-6">
           <Dropdown
-            className="w-[204px]"
+            className="w-full"
             id="program"
             label="Program"
             value={filters.program_type}
@@ -73,7 +91,7 @@ export function FilterBar() {
             onChange={(value) => updateFilter("program_type", value)}
           />
           <Dropdown
-            className="w-[164px]"
+            className="w-full"
             id="grad-year"
             label="Grad year"
             value={filters.grad_year}
@@ -83,7 +101,17 @@ export function FilterBar() {
             onChange={(value) => updateFilter("grad_year", value)}
           />
           <Dropdown
-            className="w-[152px]"
+            className="w-full"
+            id="country"
+            label="Country"
+            value={filters.country}
+            options={countries}
+            openFilter={openFilter}
+            setOpenFilter={setOpenFilter}
+            onChange={(value) => updateFilter("country", value)}
+          />
+          <Dropdown
+            className="w-full"
             id="remote"
             label="Remote"
             value={filters.remote_type}
@@ -93,7 +121,7 @@ export function FilterBar() {
             onChange={(value) => updateFilter("remote_type", value)}
           />
           <Dropdown
-            className="w-[138px]"
+            className="w-full"
             id="visa"
             label="Visa"
             value={filters.visa_status}
@@ -103,7 +131,7 @@ export function FilterBar() {
             onChange={(value) => updateFilter("visa_status", value)}
           />
           <Dropdown
-            className="w-[138px]"
+            className="w-full"
             id="skill"
             label="Skill"
             value={filters.skill}
@@ -115,7 +143,7 @@ export function FilterBar() {
         </div>
         <button
           type="button"
-          className="ml-auto inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 text-sm font-semibold text-[var(--muted-strong)] shadow-sm transition hover:border-[var(--line-strong)] hover:bg-[var(--surface-soft)]"
+          className="ml-auto inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--muted-strong)] shadow-sm transition hover:border-[var(--line-strong)] hover:bg-[var(--surface-soft)]"
           onClick={clearFilters}
         >
           <X size={15} />
@@ -156,24 +184,31 @@ function Dropdown({
   const displayValue = value ? formatOption(value) : "All";
 
   return (
-    <div className={`relative shrink-0 ${className}`} onClick={(event) => event.stopPropagation()}>
+    <div className={`relative min-w-0 ${className}`} onClick={(event) => event.stopPropagation()}>
       <button
         type="button"
-        className={`grid h-10 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-3 text-left text-sm shadow-sm transition ${
+        className={`relative flex h-10 w-full flex-col justify-center rounded-lg border px-2.5 pr-7 text-left shadow-sm transition ${
           isOpen
-            ? "border-[var(--accent)] bg-white"
-            : "border-[var(--line)] bg-[var(--surface-soft)] hover:border-[var(--line-strong)] hover:bg-white"
+            ? "border-[var(--accent)] bg-[var(--surface)]"
+            : "border-[var(--line)] bg-[var(--surface-soft)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-strong)]"
         }`}
         aria-label={`${label}: ${displayValue}`}
         aria-expanded={isOpen}
         onClick={() => setOpenFilter(isOpen ? null : id)}
       >
-        <span className="whitespace-nowrap text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">{label}</span>
-        <span className="min-w-0 whitespace-nowrap text-sm font-medium text-[var(--foreground)]">{displayValue}</span>
-        <ChevronDown className={`text-[var(--muted)] transition ${isOpen ? "rotate-180" : ""}`} size={16} />
+        <span className="truncate text-[10px] font-bold uppercase leading-none tracking-wide text-[var(--muted)]">
+          {label}
+        </span>
+        <span className="truncate text-sm font-medium leading-snug text-[var(--foreground)]">
+          {displayValue}
+        </span>
+        <ChevronDown
+          className={`absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted)] transition ${isOpen ? "rotate-180" : ""}`}
+          size={14}
+        />
       </button>
       {isOpen ? (
-        <div className="absolute left-0 top-11 z-30 max-h-72 w-full overflow-auto rounded-lg border border-[var(--line)] bg-white p-1 shadow-[0_14px_32px_rgba(25,35,40,0.14)]">
+        <div className="absolute left-0 top-11 z-30 max-h-72 w-full overflow-auto rounded-lg border border-[var(--line)] bg-[var(--surface)] p-1 shadow-[0_14px_32px_rgba(25,35,40,0.14)]">
           <OptionButton label="All" active={!value} onClick={() => onChangeAndClose("", onChange, setOpenFilter)} />
           {options.map((option) => (
             <OptionButton

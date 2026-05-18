@@ -38,6 +38,9 @@ class Phase2Tests(unittest.TestCase):
             "https://www.amazon.jobs/en/search",
             "https://jobs.apple.com/en-us/search?sort=relevance",
             "https://www.metacareers.com/jobsearch",
+            "https://careers.walmart.com/results",
+            "https://careers.homedepot.com/job-search-results/",
+            "https://mycareer.verizon.com/jobs/",
             "https://explore.jobs.netflix.net/careers",
             "https://apply.careers.microsoft.com/careers",
             "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
@@ -56,6 +59,13 @@ class Phase2Tests(unittest.TestCase):
             "https://boards.greenhouse.io/deepmind",
             "https://boards.greenhouse.io/waymo",
             "https://salesforce.wd12.myworkdayjobs.com/External_Career_Site",
+            "https://careers.unitedhealthgroup.com/search-jobs",
+            "https://cvshealth.wd1.myworkdayjobs.com/CVS_Health_Careers",
+            "https://fedex.wd1.myworkdayjobs.com/FXE-EU_External",
+            "https://fedex.wd1.myworkdayjobs.com/FXE_APAC_External",
+            "https://ghr.wd1.myworkdayjobs.com/en-us/lateral-us",
+            "https://target.wd5.myworkdayjobs.com/targetcareers",
+            "https://tysonfoods.wd5.myworkdayjobs.com/TSN",
         }
 
         self.assertTrue(requested_sources.issubset(DEFAULT_CAREER_URLS))
@@ -74,11 +84,15 @@ class Phase2Tests(unittest.TestCase):
         self.assertEqual(router.detect_only("https://jobs.ashbyhq.com/ashby").provider, "ashby")
         self.assertEqual(router.detect_only("https://explore.jobs.netflix.net/careers").provider, "eightfold")
         self.assertEqual(router.detect_only("https://www.metacareers.com/jobsearch").provider, "meta")
+        self.assertEqual(router.detect_only("https://careers.walmart.com/results").provider, "walmart")
+        self.assertEqual(router.detect_only("https://careers.homedepot.com/job-search-results/").provider, "mcloud")
+        self.assertEqual(router.detect_only("https://mycareer.verizon.com/jobs/").provider, "verizon")
         self.assertEqual(router.detect_only("https://jobs.smartrecruiters.com/ServiceNow").provider, "smartrecruiters")
         self.assertEqual(router.detect_only("https://jobs.sap.com/search/").provider, "successfactors")
         self.assertEqual(router.detect_only("https://apply.careers.microsoft.com/careers").provider, "eightfold")
         self.assertEqual(router.detect_only("https://careers.qualcomm.com/careers/search").provider, "eightfold")
         self.assertEqual(router.detect_only("https://careers.arm.com/search-jobs").provider, "talentbrew")
+        self.assertEqual(router.detect_only("https://careers.unitedhealthgroup.com/search-jobs").provider, "talentbrew")
         self.assertEqual(router.detect_only("https://jobs.intuit.com/search-jobs").provider, "talentbrew")
         self.assertEqual(router.detect_only("https://careers.ti.com/en/sites/CX/jobs").provider, "oracle")
 
@@ -127,6 +141,27 @@ class Phase2Tests(unittest.TestCase):
 
         self.assertIsNotNone(posted)
         self.assertEqual((datetime.now(UTC) - posted).days, 2)
+
+    def test_workday_prefers_posted_on_over_start_date(self) -> None:
+        extractor = WorkdayExtractor(
+            "nvidia",
+            source_url="https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
+        )
+
+        posted = extractor._date_posted({"startDate": "2026-05-18", "postedOn": "Posted 5 Days Ago"})
+
+        self.assertIsNotNone(posted)
+        self.assertEqual((datetime.now(UTC) - posted).days, 5)
+
+    def test_workday_derives_title_from_external_path(self) -> None:
+        extractor = WorkdayExtractor(
+            "target",
+            source_url="https://target.wd5.myworkdayjobs.com/targetcareers",
+        )
+
+        title = extractor._job_title({"externalPath": "/job/BangaloreIndia/Engineer---Target-India-8_R0000439188"})
+
+        self.assertEqual(title, "Engineer Target India 8")
 
     def test_proxy_pool_reads_environment_urls(self) -> None:
         with patch.dict(os.environ, {"JOBFUL_PROXY_URLS": "http://proxy-one:8000, http://proxy-two:8000"}, clear=True):

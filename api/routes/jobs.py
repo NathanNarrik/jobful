@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Integer, String, Text, cast, func, or_, select
+from sqlalchemy import Integer, String, Text, and_, cast, func, or_, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,7 @@ def list_jobs(
     academic_level: str | None = None,
     skill: str | None = None,
     location: str | None = None,
+    country: str | None = None,
     company_id: UUID | None = None,
     company: str | None = None,
     normalization_status: str | None = None,
@@ -49,6 +50,7 @@ def list_jobs(
         academic_level=academic_level,
         skill=skill,
         location=location,
+        country=country,
         company_id=company_id,
         company=company,
         normalization_status=normalization_status,
@@ -65,7 +67,7 @@ def list_jobs(
 
     total = int(db.execute(count_stmt).scalar_one())
     jobs = db.execute(
-        stmt.order_by(Job.last_seen_at.desc(), Job.id.desc()).offset(offset).limit(limit)
+        stmt.order_by(Job.date_posted.desc().nullslast(), Job.last_seen_at.desc(), Job.id.desc()).offset(offset).limit(limit)
     ).scalars().all()
     return PaginatedJobsResponse(
         items=[JobListItem.model_validate(job) for job in jobs],
@@ -93,6 +95,7 @@ def build_filters(
     academic_level: str | None,
     skill: str | None,
     location: str | None,
+    country: str | None,
     company_id: UUID | None,
     company: str | None,
     normalization_status: str | None,
@@ -127,14 +130,26 @@ def build_filters(
     if seen_before:
         filters.append(Job.last_seen_at <= seen_before)
     if grad_year is not None:
-        filters.append(array_contains(db, Job.required_grad_years, grad_year))
+        filters.append(
+            or_(
+                array_contains(db, Job.required_grad_years, grad_year),
+                and_(
+                    array_is_empty(db, Job.required_grad_years),
+                    Job.program_type.in_(("internship", "new_grad")),
+                ),
+            )
+        )
     if academic_level:
         filters.append(array_contains(db, Job.academic_levels, academic_level))
     if skill:
         normalized_skill = skill.strip().lower()
         filters.append(array_contains(db, Job.required_skills, normalized_skill))
     if location:
-        filters.append(array_contains(db, Job.location, location))
+        filters.append(array_text_matches(Job.location, location))
+    if country:
+        country_terms = country_search_terms(country)
+        if country_terms:
+            filters.append(or_(*(array_text_matches(Job.location, term) for term in country_terms)))
     if search:
         token = f"%{search.strip()}%"
         filters.append(or_(Job.job_title.ilike(token), Job.company_name.ilike(token)))
@@ -147,3 +162,36 @@ def array_contains(db: Session, column: object, value: object) -> object:
         return column.op("@>")(cast(postgresql.array([value]), array_type))
     token = f'"{value}"' if isinstance(value, str) else str(value)
     return cast(column, String).ilike(f"%{token}%")
+
+
+def array_is_empty(db: Session, column: object) -> object:
+    if db.bind is not None and db.bind.dialect.name == "postgresql":
+        return func.coalesce(func.array_length(column, 1), 0) == 0
+    return cast(column, String).in_(("[]", "null", ""))
+
+
+def array_text_matches(column: object, value: str) -> object:
+    return cast(column, String).ilike(f"%{value.strip()}%")
+
+
+def country_search_terms(country: str) -> list[str]:
+    normalized = country.strip().lower()
+    aliases = {
+        "united states": ["United States", "USA", ", US", " US,"],
+        "canada": ["Canada"],
+        "india": ["India"],
+        "united kingdom": ["United Kingdom", "UK", "England", "Scotland"],
+        "ireland": ["Ireland"],
+        "germany": ["Germany"],
+        "france": ["France"],
+        "netherlands": ["Netherlands"],
+        "spain": ["Spain"],
+        "singapore": ["Singapore"],
+        "australia": ["Australia"],
+        "japan": ["Japan"],
+        "china": ["China"],
+        "taiwan": ["Taiwan"],
+        "south korea": ["South Korea", "Korea"],
+        "israel": ["Israel"],
+    }
+    return aliases.get(normalized, [country.strip()] if country.strip() else [])
