@@ -16,6 +16,13 @@ class LeverExtractor(BaseExtractor):
     page_limit = 250
     max_pages = 8
     pagination_delay_seconds = 0.25
+    COMPANY_BY_TOKEN = {
+        "houzz": "Houzz",
+        "shieldai": "Shield AI",
+        "sonatype": "Sonatype",
+        "zilliz": "Zilliz",
+        "zoox": "Zoox",
+    }
 
     def extract(self) -> list[JobListing]:
         payload = self._fetch_all_pages()
@@ -121,7 +128,7 @@ class LeverExtractor(BaseExtractor):
         )
 
     def _company_name(self) -> str:
-        return self.board_token.replace("-", " ").title()
+        return self.COMPANY_BY_TOKEN.get(self.board_token, self.board_token.replace("-", " ").title())
 
     def _locations(self, categories: dict[str, Any]) -> list[str]:
         return self._string_list(categories.get("location")) or ["Unspecified"]

@@ -220,6 +220,8 @@ class AtsRouter:
             hostname == "careers.qualcomm.com" and "careers" in path_parts and "search" in path_parts
         ) or (
             hostname == "apply.careers.microsoft.com" and "careers" in path_parts
+        ) or (
+            hostname == "searchcareers.caci.com"
         )
 
     def _eightfold_token(self, hostname: str) -> str:
@@ -229,6 +231,8 @@ class AtsRouter:
             return "microsoft"
         if hostname == "careers.qualcomm.com":
             return "qualcomm"
+        if hostname == "searchcareers.caci.com":
+            return "caci"
         return self._hostname_token(hostname)
 
     def _is_smartrecruiters(self, hostname: str, path_parts: list[str]) -> bool:

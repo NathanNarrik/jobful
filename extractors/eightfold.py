@@ -25,6 +25,7 @@ class EightfoldExtractor(BaseExtractor):
     PCSX_BOARDS = {
         "apply.careers.microsoft.com": ("microsoft.com", "Microsoft"),
         "careers.qualcomm.com": ("qualcomm.com", "Qualcomm"),
+        "searchcareers.caci.com": ("caci.com", "CACI International"),
     }
 
     def extract(self) -> list[JobListing]:
