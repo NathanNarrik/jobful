@@ -12,6 +12,11 @@ from models import JobListing
 class GreenhouseExtractor(BaseExtractor):
     provider = "greenhouse"
     api_url_template = "https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs?content=true"
+    COMPANY_BY_TOKEN = {
+        "fiveringsllc": "Five Rings",
+        "mercury": "Mercury",
+        "xai": "xAI",
+    }
 
     def extract(self) -> list[JobListing]:
         url = self.api_url_template.format(board_token=self.board_token)
@@ -21,7 +26,7 @@ class GreenhouseExtractor(BaseExtractor):
             self.logger.error("Unexpected Greenhouse payload shape for board %s", self.board_token)
             raise ExtractionError("Unexpected Greenhouse payload schema", raw_payload=payload)
 
-        company_name = str(payload.get("name") or self.board_token)
+        company_name = self.COMPANY_BY_TOKEN.get(self.board_token, str(payload.get("name") or self.board_token))
         listings: list[JobListing] = []
 
         for job in payload["jobs"]:

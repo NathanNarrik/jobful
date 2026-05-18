@@ -14,8 +14,14 @@ class AshbyExtractor(BaseExtractor):
     api_url_template = "https://api.ashbyhq.com/posting-api/job-board/{board_token}"
     COMPANY_BY_TOKEN = {
         "cursor": "Cursor",
+        "elevenlabs": "ElevenLabs",
+        "harvey": "Harvey",
+        "mercor": "Mercor",
         "mistral": "Mistral AI",
+        "modal": "Modal",
         "openai": "OpenAI",
+        "perplexity": "Perplexity",
+        "poolside": "poolside",
     }
 
     def extract(self) -> list[JobListing]:
