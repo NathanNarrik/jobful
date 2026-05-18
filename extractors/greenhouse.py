@@ -13,8 +13,17 @@ class GreenhouseExtractor(BaseExtractor):
     provider = "greenhouse"
     api_url_template = "https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs?content=true"
     COMPANY_BY_TOKEN = {
+        "arizeai": "Arize AI",
+        "canonical": "Canonical",
+        "cerebrassystems": "Cerebras",
+        "digitalocean98": "DigitalOcean",
         "fiveringsllc": "Five Rings",
+        "gemini": "Gemini",
+        "grafanalabs": "Grafana Labs",
+        "launchdarkly": "LaunchDarkly",
         "mercury": "Mercury",
+        "runpod": "Runpod",
+        "sourcegraph91": "Sourcegraph",
         "xai": "xAI",
     }
 

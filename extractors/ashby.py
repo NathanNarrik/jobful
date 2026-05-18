@@ -13,9 +13,15 @@ class AshbyExtractor(BaseExtractor):
     provider = "ashby"
     api_url_template = "https://api.ashbyhq.com/posting-api/job-board/{board_token}"
     COMPANY_BY_TOKEN = {
+        "browserbase": "Browserbase",
+        "cartesia": "Cartesia",
+        "cognition": "Cognition",
         "cursor": "Cursor",
+        "decagon": "Decagon",
         "elevenlabs": "ElevenLabs",
+        "factory": "Factory",
         "harvey": "Harvey",
+        "langchain": "LangChain",
         "mercor": "Mercor",
         "mistral": "Mistral AI",
         "modal": "Modal",
