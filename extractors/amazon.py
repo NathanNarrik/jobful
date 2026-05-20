@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlencode
 
 from pydantic import ValidationError
 
@@ -16,7 +17,19 @@ class AmazonExtractor(BaseExtractor):
         "?offset={offset}&result_limit={limit}&sort=relevant"
     )
     page_limit = 100
-    max_pages = 20
+    max_pages = 120
+    supplemental_categories = [
+        "software-development",
+        "machine-learning-science",
+        "data-science",
+        "database-administration",
+        "operations-it-support-engineering",
+        "systems-quality-security-engineering",
+        "solutions-architect",
+        "project-program-product-management-technical",
+        "hardware-development",
+        "business-intelligence",
+    ]
 
     def extract(self) -> list[JobListing]:
         payload = self._fetch_all_pages()
@@ -36,13 +49,45 @@ class AmazonExtractor(BaseExtractor):
         jobs: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
 
+        general_jobs, hits = self._fetch_pages(seen_ids=seen_ids)
+        jobs.extend(general_jobs)
+
+        if hits is not None and hits >= 10_000:
+            for category in self.supplemental_categories:
+                supplemental_jobs, _ = self._fetch_pages(
+                    seen_ids=seen_ids,
+                    extra_query={"category[]": category},
+                )
+                jobs.extend(supplemental_jobs)
+
+        return jobs
+
+    def _fetch_pages(
+        self,
+        *,
+        seen_ids: set[str],
+        extra_query: dict[str, str] | None = None,
+    ) -> tuple[list[dict[str, Any]], int | None]:
+        jobs: list[dict[str, Any]] = []
+        total: int | None = None
+
         for page in range(self.max_pages):
-            url = self.api_url_template.format(offset=page * self.page_limit, limit=self.page_limit)
+            offset = page * self.page_limit
+            url = self._page_url(offset, self.page_limit, extra_query)
             payload = self._get_json(url)
-            if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
+            if not isinstance(payload, dict):
                 raise ExtractionError("Unexpected Amazon jobs payload schema", raw_payload=payload)
 
-            page_jobs = [job for job in payload["jobs"] if isinstance(job, dict)]
+            if total is None and isinstance(payload.get("hits"), int):
+                total = int(payload["hits"])
+
+            raw_jobs = payload.get("jobs")
+            if not isinstance(raw_jobs, list):
+                if payload.get("error"):
+                    break
+                raise ExtractionError("Unexpected Amazon jobs payload schema", raw_payload=payload)
+
+            page_jobs = [job for job in raw_jobs if isinstance(job, dict)]
             if not page_jobs:
                 break
 
@@ -59,10 +104,23 @@ class AmazonExtractor(BaseExtractor):
                 break
 
             jobs.extend(new_jobs)
+            if total is not None and len(jobs) >= total:
+                break
             if len(page_jobs) < self.page_limit:
                 break
 
-        return jobs
+        return jobs, total
+
+    def _page_url(
+        self,
+        offset: int,
+        limit: int,
+        extra_query: dict[str, str] | None = None,
+    ) -> str:
+        url = self.api_url_template.format(offset=offset, limit=limit)
+        if not extra_query:
+            return url
+        return f"{url}&{urlencode(extra_query, doseq=True)}"
 
     def _map_job(self, job: dict[str, Any]) -> JobListing:
         job_id = str(job.get("id_icims") or job.get("job_path") or job["title"]).strip()

@@ -14,7 +14,7 @@ class VerizonExtractor(BaseExtractor):
     provider = "verizon"
     api_url = "https://mycareer.verizon.com/api/jobs/search/"
     page_limit = 100
-    max_pages = 20
+    max_pages = 100
 
     def extract(self) -> list[JobListing]:
         jobs = self._fetch_all_jobs()

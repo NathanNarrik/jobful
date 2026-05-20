@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -20,6 +21,8 @@ class OracleExtractor(BaseExtractor):
     provider = "oracle"
     page_limit = 100
     max_pages = 100
+    detail_enrichment_limit = 2500
+    detail_workers = 8
     COMPANY_BY_HOST = {
         "careers.ti.com": "Texas Instruments",
         "careers.honeywell.com": "Honeywell",
@@ -34,6 +37,7 @@ class OracleExtractor(BaseExtractor):
 
         oracle_base_url, site_number = self._discover_context(self.source_url)
         jobs = self._fetch_all_jobs(oracle_base_url, site_number)
+        jobs = self._enrich_jobs_with_details(oracle_base_url, jobs)
         listings: list[JobListing] = []
 
         for job in jobs:
@@ -77,6 +81,7 @@ class OracleExtractor(BaseExtractor):
 
     def _fetch_all_jobs(self, oracle_base_url: str, site_number: str) -> list[dict[str, Any]]:
         jobs: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
         offset = 0
         total: int | None = None
 
@@ -108,10 +113,20 @@ class OracleExtractor(BaseExtractor):
             if not isinstance(page_jobs, list) or not page_jobs:
                 break
 
-            jobs.extend(job for job in page_jobs if isinstance(job, dict) and self._is_open(job))
-            offset += len(page_jobs)
-            if len(page_jobs) < self.page_limit:
-                break
+            for job in page_jobs:
+                if not isinstance(job, dict) or not self._is_open(job):
+                    continue
+                job_id = str(job.get("Id") or "").strip()
+                if job_id and job_id in seen_ids:
+                    continue
+                if job_id:
+                    seen_ids.add(job_id)
+                jobs.append(job)
+
+            # Oracle can return an under-filled intermediate page even when
+            # later offsets still contain requisitions, so advance by the
+            # requested page size and let TotalJobsCount/empty pages stop us.
+            offset += self.page_limit
             if offset >= self.page_limit * self.max_pages:
                 self.logger.warning(
                     "Stopping Oracle pagination for board %s after %s pages",
@@ -121,6 +136,69 @@ class OracleExtractor(BaseExtractor):
                 break
 
         return jobs
+
+    def _enrich_jobs_with_details(
+        self,
+        oracle_base_url: str,
+        jobs: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        candidates = [job for job in jobs if self._needs_detail_enrichment(job)]
+        if not candidates:
+            return jobs
+        if len(candidates) > self.detail_enrichment_limit:
+            self.logger.info(
+                "Skipping Oracle detail enrichment for %s jobs on board %s",
+                len(candidates),
+                self.board_token,
+            )
+            return jobs
+
+        details_by_id: dict[str, dict[str, Any]] = {}
+        with ThreadPoolExecutor(max_workers=self.detail_workers) as executor:
+            futures = {
+                executor.submit(self._fetch_job_detail, oracle_base_url, str(job.get("Id")).strip()): job
+                for job in candidates
+                if str(job.get("Id") or "").strip()
+            }
+            for future in as_completed(futures):
+                job = futures[future]
+                job_id = str(job.get("Id") or "").strip()
+                try:
+                    detail = future.result()
+                except ExtractionError:
+                    self.logger.debug("Oracle detail enrichment failed for %s", job_id, exc_info=True)
+                    continue
+                if detail:
+                    details_by_id[job_id] = detail
+
+        if not details_by_id:
+            return jobs
+
+        return [
+            {**job, **details_by_id.get(str(job.get("Id") or "").strip(), {})}
+            for job in jobs
+        ]
+
+    def _needs_detail_enrichment(self, job: dict[str, Any]) -> bool:
+        detail_fields = (
+            "ExternalDescriptionStr",
+            "ExternalResponsibilitiesStr",
+            "ExternalQualificationsStr",
+            "JobFunction",
+            "Department",
+            "Category",
+        )
+        return not any(job.get(field) for field in detail_fields)
+
+    def _fetch_job_detail(self, oracle_base_url: str, job_id: str) -> dict[str, Any] | None:
+        url = (
+            f"{oracle_base_url}/hcmRestApi/resources/latest/"
+            f"recruitingCEJobRequisitionDetails/{job_id}?onlyData=true"
+        )
+        payload = self._get_json(url)
+        if not isinstance(payload, dict):
+            return None
+        return payload
 
     def _is_open(self, job: dict[str, Any]) -> bool:
         posting_end = self._parse_datetime(job.get("PostingEndDate"))
@@ -133,7 +211,10 @@ class OracleExtractor(BaseExtractor):
         description_html = "\n\n".join(
             str(value)
             for value in (
+                job.get("ExternalDescriptionStr"),
                 job.get("ShortDescriptionStr"),
+                job.get("CorporateDescriptionStr"),
+                job.get("OrganizationDescriptionStr"),
                 job.get("ExternalResponsibilitiesStr"),
                 job.get("ExternalQualificationsStr"),
             )
@@ -150,7 +231,7 @@ class OracleExtractor(BaseExtractor):
             description_html=description_html or None,
             employment_type=self._optional_string(job.get("JobSchedule") or job.get("WorkerType")),
             departments=self._departments(job),
-            date_posted=self._parse_datetime(job.get("PostedDate")),
+            date_posted=self._parse_datetime(job.get("ExternalPostedStartDate") or job.get("PostedDate")),
         )
 
     def _company_name(self) -> str:
@@ -177,7 +258,7 @@ class OracleExtractor(BaseExtractor):
 
     def _departments(self, job: dict[str, Any]) -> list[str]:
         departments: list[str] = []
-        for key in ("JobFamily", "JobFunction", "Department", "BusinessUnit", "Organization"):
+        for key in ("Category", "RequisitionType", "JobFamily", "JobFunction", "Department", "BusinessUnit", "Organization"):
             departments.extend(self._string_list(job.get(key)))
         return list(dict.fromkeys(departments))
 

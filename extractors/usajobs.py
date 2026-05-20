@@ -15,7 +15,7 @@ class USAJobsExtractor(BaseExtractor):
     provider = "usajobs"
     search_endpoint = "https://www.usajobs.gov/Search/ExecuteSearch"
     page_size = 25
-    max_pages = 20
+    max_pages = 100
 
     COMPANY_BY_TOKEN = {
         "nasa": "NASA",

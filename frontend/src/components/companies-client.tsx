@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/badge";
 import { listCompanies } from "@/lib/api";
-import { companyInitials, shortDate, titleCase } from "@/lib/format";
+import { companyInitials, displayCompanyName, shortDate, titleCase } from "@/lib/format";
 import type { CompanySummary } from "@/types";
 
 type CompanyMode = "active" | "all" | "quiet";
@@ -145,6 +145,8 @@ export function CompaniesClient() {
 }
 
 function FeaturedCompany({ company }: { company: CompanySummary }) {
+  const companyName = displayCompanyName(company.name);
+
   return (
     <Link
       href={`/discover?search=${encodeURIComponent(company.name)}`}
@@ -156,7 +158,7 @@ function FeaturedCompany({ company }: { company: CompanySummary }) {
         </div>
         <ArrowUpRight className="text-[var(--muted)] transition group-hover:text-[var(--accent)]" size={17} />
       </div>
-      <h2 className="mt-3 truncate text-base font-semibold">{company.name}</h2>
+      <h2 className="mt-3 truncate text-base font-semibold">{companyName}</h2>
       <div className="mt-3 flex items-center gap-2">
         <Badge tone={company.active_job_count > 0 ? "teal" : "neutral"}>{company.active_job_count.toLocaleString()} active</Badge>
         <Badge>{titleCase(company.ats_provider)}</Badge>
@@ -167,6 +169,7 @@ function FeaturedCompany({ company }: { company: CompanySummary }) {
 
 function CompanyRow({ company, maxActive }: { company: CompanySummary; maxActive: number }) {
   const activeWidth = `${Math.max(4, Math.round((company.active_job_count / maxActive) * 100))}%`;
+  const companyName = displayCompanyName(company.name);
 
   return (
     <article className="grid gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-3 transition hover:bg-[var(--surface-soft)] md:grid-cols-[minmax(260px,1.4fr)_120px_120px_minmax(140px,0.8fr)_minmax(120px,0.7fr)_auto] md:items-center">
@@ -175,7 +178,7 @@ function CompanyRow({ company, maxActive }: { company: CompanySummary; maxActive
           {companyInitials(company.name)}
         </div>
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold">{company.name}</h2>
+          <h2 className="truncate text-sm font-semibold">{companyName}</h2>
           <p className="truncate text-xs text-[var(--muted)]">{company.ats_board_token ?? company.ats_provider}</p>
         </div>
       </div>

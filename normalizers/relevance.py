@@ -26,6 +26,7 @@ STRONG_CS_TITLE_TERMS = (
     "fullstack",
     "ios engineer",
     "information technology specialist",
+    "it engineer",
     "machine learning",
     "ml engineer",
     "mobile engineer",
@@ -155,7 +156,15 @@ CS_DESCRIPTION_TERMS = (
     " software engineering ",
     " programming ",
     " build software ",
+    " cloud ",
+    " cyber security ",
+    " cybersecurity ",
     " distributed systems ",
+    " information technology ",
+    " ict ",
+    " network ",
+    " oracle hcm ",
+    " software ",
 )
 
 

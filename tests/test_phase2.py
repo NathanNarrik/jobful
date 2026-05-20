@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from extractors.amazon import AmazonExtractor
 from extractors.google import GoogleExtractor
+from extractors.oracle import OracleExtractor
 from extractors.talentbrew import TalentBrewExtractor
 from extractors.workday import WorkdayExtractor
 from proxy import ProxyPool
@@ -131,6 +132,39 @@ class Phase2Tests(unittest.TestCase):
 
         self.assertEqual(extractor._job_posting_schema(soup)["datePosted"], "2026-5-15")
 
+    def test_oracle_pagination_continues_after_short_intermediate_page(self) -> None:
+        extractor = OracleExtractor("cx", source_url="https://example.oraclecloud.com/en/sites/CX/jobs")
+        extractor.page_limit = 2
+        payloads = {
+            0: [
+                {"Id": "1", "Title": "Software Engineer"},
+                {"Id": "2", "Title": "Data Engineer"},
+            ],
+            2: [
+                {"Id": "3", "Title": "Platform Engineer"},
+            ],
+            4: [
+                {"Id": "4", "Title": "Security Engineer"},
+                {"Id": "2", "Title": "Data Engineer"},
+            ],
+        }
+
+        def fake_get_json(url: str) -> dict[str, object]:
+            offset = int(url.rsplit("offset=", maxsplit=1)[1])
+            return {
+                "items": [
+                    {
+                        "TotalJobsCount": 6,
+                        "requisitionList": payloads.get(offset, []),
+                    }
+                ]
+            }
+
+        with patch.object(extractor, "_get_json", side_effect=fake_get_json):
+            jobs = extractor._fetch_all_jobs("https://example.oraclecloud.com", "CX")
+
+        self.assertEqual([job["Id"] for job in jobs], ["1", "2", "3", "4"])
+
     def test_workday_parses_relative_posted_dates(self) -> None:
         extractor = WorkdayExtractor(
             "nvidia",
@@ -142,7 +176,7 @@ class Phase2Tests(unittest.TestCase):
         self.assertIsNotNone(posted)
         self.assertEqual((datetime.now(UTC) - posted).days, 2)
 
-    def test_workday_prefers_posted_on_over_start_date(self) -> None:
+    def test_workday_prefers_exact_start_date_over_relative_posted_on(self) -> None:
         extractor = WorkdayExtractor(
             "nvidia",
             source_url="https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
@@ -150,8 +184,69 @@ class Phase2Tests(unittest.TestCase):
 
         posted = extractor._date_posted({"startDate": "2026-05-18", "postedOn": "Posted 5 Days Ago"})
 
-        self.assertIsNotNone(posted)
-        self.assertEqual((datetime.now(UTC) - posted).days, 5)
+        self.assertEqual(posted, datetime(2026, 5, 18, tzinfo=UTC))
+
+    def test_workday_uses_facet_split_when_total_hits_workday_cap(self) -> None:
+        extractor = WorkdayExtractor(
+            "nvidia",
+            source_url="https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
+        )
+        extractor.page_limit = 2
+        extractor.facet_split_total_threshold = 4
+        extractor.detail_fetch_limit = 0
+
+        seed_payload = {
+            "total": 4,
+            "jobPostings": [{"title": "Ignored", "externalPath": "/ignored"}],
+            "facets": [
+                {
+                    "facetParameter": "jobFamilyGroup",
+                    "values": [
+                        {"descriptor": "Engineering", "id": "eng", "count": 3},
+                        {"descriptor": "IT", "id": "it", "count": 2},
+                    ],
+                }
+            ],
+        }
+        pages = {
+            ("eng", 0): {
+                "total": 3,
+                "jobPostings": [
+                    {"title": "Software Engineer", "externalPath": "/job/software"},
+                    {"title": "Data Engineer", "externalPath": "/job/data"},
+                ],
+            },
+            ("eng", 2): {
+                "total": 3,
+                "jobPostings": [{"title": "Platform Engineer", "externalPath": "/job/platform"}],
+            },
+            ("it", 0): {
+                "total": 2,
+                "jobPostings": [
+                    {"title": "IT Engineer", "externalPath": "/job/it"},
+                    {"title": "Software Engineer Duplicate", "externalPath": "/job/software"},
+                ],
+            },
+        }
+
+        def fake_post_json(url: str, payload: dict[str, object]) -> dict[str, object]:
+            facets = payload.get("appliedFacets")
+            if facets == {}:
+                return seed_payload
+            facet_id = facets["jobFamilyGroup"][0]  # type: ignore[index]
+            offset = payload["offset"]
+            return pages.get((facet_id, offset), {"total": 0, "jobPostings": []})
+
+        with (
+            patch.object(extractor, "_post_json", side_effect=fake_post_json),
+            patch.object(extractor, "_should_enrich_details", return_value=False),
+        ):
+            jobs = extractor._fetch_direct_cxs_jobs("https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite")
+
+        self.assertEqual(
+            [job["externalPath"] for job in jobs],
+            ["/job/software", "/job/data", "/job/platform", "/job/it"],
+        )
 
     def test_workday_derives_title_from_external_path(self) -> None:
         extractor = WorkdayExtractor(

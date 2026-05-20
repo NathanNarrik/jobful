@@ -12,6 +12,7 @@ from models import JobListing
 
 class LeverExtractor(BaseExtractor):
     provider = "lever"
+    full_api_url_template = "https://api.lever.co/v0/postings/{board_token}?mode=json"
     api_url_template = "https://api.lever.co/v0/postings/{board_token}?mode=json&limit={limit}&offset={offset}"
     page_limit = 250
     max_pages = 8
@@ -20,6 +21,7 @@ class LeverExtractor(BaseExtractor):
         "houzz": "Houzz",
         "shieldai": "Shield AI",
         "sonatype": "Sonatype",
+        "veeva": "Veeva Systems",
         "zilliz": "Zilliz",
         "zoox": "Zoox",
     }
@@ -46,6 +48,10 @@ class LeverExtractor(BaseExtractor):
         return listings
 
     def _fetch_all_pages(self) -> list[dict[str, Any]]:
+        full_payload = self._get_json(self.full_api_url_template.format(board_token=self.board_token))
+        if isinstance(full_payload, list):
+            return self._new_jobs(full_payload, set())
+
         jobs: list[dict[str, Any]] = []
         seen_job_ids: set[str] = set()
         offset = 0

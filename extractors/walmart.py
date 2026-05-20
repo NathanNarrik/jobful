@@ -14,7 +14,7 @@ class WalmartExtractor(BaseExtractor):
     provider = "walmart"
     api_url = "https://careers.walmart.com/api/streaming/careers-ai/api/chat/sync?chatBasedSearchJob"
     page_limit = 10
-    max_pages = 50
+    max_pages = 300
     graphql_query = """
     query GetJobSearchAssistant($chatRequest: JobChatRequest!) {
       jobSearchAssistant(chatRequest: $chatRequest) {

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -24,6 +25,8 @@ class WorkdayExtractor(BaseExtractor):
     provider = "workday"
     page_limit = 20
     detail_fetch_limit = 250
+    detail_workers = 8
+    facet_split_total_threshold = 2000
     page_load_timeout_ms = 30_000
     COMPANY_BY_TOKEN = {
         "amd": "AMD",
@@ -123,44 +126,182 @@ class WorkdayExtractor(BaseExtractor):
     def _fetch_direct_cxs_jobs(self, source_url: str) -> list[dict[str, Any]]:
         context = self._context_from_url(source_url)
         jobs_url = f"https://{context.hostname}/wday/cxs/{context.tenant}/{context.site}/jobs"
-        offset = 0
-        total: int | None = None
+        seed_payload = self._post_json(
+            jobs_url,
+            {
+                "appliedFacets": {},
+                "limit": self.page_limit,
+                "offset": 0,
+                "searchText": "",
+            },
+        )
+        if not isinstance(seed_payload, dict) or not isinstance(seed_payload.get("jobPostings"), list):
+            raise ExtractionError("Unexpected Workday jobs payload schema", raw_payload=seed_payload)
+
+        total = self._payload_total(seed_payload)
+        if total is not None and total >= self.facet_split_total_threshold:
+            jobs = self._fetch_jobs_split_by_facet(context, jobs_url, seed_payload, total)
+        else:
+            jobs = self._fetch_jobs_page_range(context, jobs_url, {}, seed_payload, total)
+
+        if self._should_enrich_details(len(jobs)):
+            return self._enrich_details(context, jobs)
+        return jobs
+
+    def _fetch_jobs_split_by_facet(
+        self,
+        context: WorkdayContext,
+        jobs_url: str,
+        seed_payload: dict[str, Any],
+        total: int,
+    ) -> list[dict[str, Any]]:
+        facet = self._best_split_facet(seed_payload, total)
+        if facet is None:
+            return self._fetch_jobs_page_range(context, jobs_url, {}, seed_payload, total)
+
+        facet_parameter, values = facet
         jobs: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        for value in values:
+            value_id = value.get("id")
+            if not isinstance(value_id, str) or not value_id.strip():
+                continue
+
+            applied_facets = {facet_parameter: [value_id]}
+            page_jobs = self._fetch_jobs_page_range(context, jobs_url, applied_facets)
+            for job in page_jobs:
+                job_id = self._job_id_for_dedupe(job)
+                if job_id and job_id in seen_ids:
+                    continue
+                if job_id:
+                    seen_ids.add(job_id)
+                jobs.append(job)
+
+        if jobs:
+            self.logger.info(
+                "Fetched %s Workday jobs for board %s via %s facet split",
+                len(jobs),
+                self.board_token,
+                facet_parameter,
+            )
+            return jobs
+
+        return self._fetch_jobs_page_range(context, jobs_url, {}, seed_payload, total)
+
+    def _fetch_jobs_page_range(
+        self,
+        context: WorkdayContext,
+        jobs_url: str,
+        applied_facets: dict[str, list[str]],
+        first_payload: dict[str, Any] | None = None,
+        first_total: int | None = None,
+    ) -> list[dict[str, Any]]:
+        offset = 0
+        total = first_total
+        jobs: list[dict[str, Any]] = []
+        payload = first_payload
 
         while total is None or offset < total:
-            payload = self._post_json(
-                jobs_url,
-                {
-                    "appliedFacets": {},
-                    "limit": self.page_limit,
-                    "offset": offset,
-                    "searchText": "",
-                },
-            )
+            if payload is None:
+                payload = self._post_json(
+                    jobs_url,
+                    {
+                        "appliedFacets": applied_facets,
+                        "limit": self.page_limit,
+                        "offset": offset,
+                        "searchText": "",
+                    },
+                )
             if not isinstance(payload, dict) or not isinstance(payload.get("jobPostings"), list):
                 raise ExtractionError("Unexpected Workday jobs payload schema", raw_payload=payload)
 
-            total_value = payload.get("total")
-            if total is None and isinstance(total_value, (int, str)) and str(total_value).isdigit():
-                total = int(total_value)
+            if total is None:
+                total = self._payload_total(payload)
             postings = payload["jobPostings"]
             if not postings:
                 break
-            should_fetch_details = total is None or total <= self.detail_fetch_limit
 
             for posting in postings:
                 if not isinstance(posting, dict):
                     raise ExtractionError("Workday posting payload is not an object", raw_payload=posting)
-                if should_fetch_details:
-                    jobs.append(self._fetch_direct_cxs_detail(context, posting))
-                else:
-                    jobs.append(posting)
+                jobs.append(posting)
 
             offset += len(postings)
             if total is None and len(postings) < self.page_limit:
                 break
+            payload = None
 
         return jobs
+
+    def _payload_total(self, payload: dict[str, Any]) -> int | None:
+        value = payload.get("total")
+        if isinstance(value, (int, str)) and str(value).isdigit():
+            return int(value)
+        return None
+
+    def _best_split_facet(
+        self,
+        payload: dict[str, Any],
+        total: int,
+    ) -> tuple[str, list[dict[str, Any]]] | None:
+        facets = payload.get("facets")
+        if not isinstance(facets, list):
+            return None
+
+        best: tuple[str, list[dict[str, Any]], int] | None = None
+        for facet in facets:
+            if not isinstance(facet, dict):
+                continue
+            parameter = facet.get("facetParameter")
+            values = [value for value in facet.get("values", []) if isinstance(value, dict)]
+            if not isinstance(parameter, str) or not values:
+                continue
+            counts = [int(value["count"]) for value in values if isinstance(value.get("count"), int)]
+            if not counts or max(counts) >= total:
+                continue
+            largest_bucket = max(counts)
+            if best is None or largest_bucket < best[2]:
+                best = (parameter, values, largest_bucket)
+
+        if best is None:
+            return None
+        return best[0], best[1]
+
+    def _job_id_for_dedupe(self, job: dict[str, Any]) -> str:
+        try:
+            return self._job_id(job)
+        except KeyError:
+            external_path = job.get("externalPath")
+            return str(external_path or "").strip()
+
+    def _should_enrich_details(self, job_count: int) -> bool:
+        return job_count <= self.detail_fetch_limit
+
+    def _enrich_details(
+        self,
+        context: WorkdayContext,
+        jobs: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        enriched_by_index: dict[int, dict[str, Any]] = {}
+        with ThreadPoolExecutor(max_workers=self.detail_workers) as executor:
+            futures = {
+                executor.submit(self._fetch_direct_cxs_detail, context, job): index
+                for index, job in enumerate(jobs)
+            }
+            for future in as_completed(futures):
+                index = futures[future]
+                try:
+                    enriched_by_index[index] = future.result()
+                except Exception:
+                    self.logger.warning(
+                        "Failed fetching Workday detail page for %s on board %s",
+                        jobs[index].get("externalPath"),
+                        self.board_token,
+                        exc_info=True,
+                    )
+                    enriched_by_index[index] = jobs[index]
+        return [enriched_by_index.get(index, job) for index, job in enumerate(jobs)]
 
     def _fetch_direct_cxs_detail(
         self,
@@ -281,14 +422,17 @@ class WorkdayExtractor(BaseExtractor):
         return self.COMPANY_BY_TOKEN.get(self.board_token, self.board_token.replace("-", " ").title())
 
     def _date_posted(self, job: dict[str, Any]) -> datetime | None:
-        for key in ("postedOn", "postedDate", "datePosted", "startDate"):
+        for key in ("postedDate", "datePosted", "startDate", "postedOn"):
             value = job.get(key)
             parsed = self._parse_datetime(value)
             if parsed is not None:
                 return parsed
-            parsed = self._parse_relative_posted_on(value)
-            if parsed is not None:
-                return parsed
+
+        value = job.get("postedOn")
+        parsed = self._parse_relative_posted_on(value)
+        if parsed is not None:
+            return parsed
+
         return None
 
     def _parse_relative_posted_on(self, value: object) -> datetime | None:

@@ -24,7 +24,7 @@ AF_INIT_DATA_RE = re.compile(
 class GoogleExtractor(BaseExtractor):
     provider = "google"
     results_url_template = "https://www.google.com/about/careers/applications/jobs/results?page={page}"
-    max_pages = 20
+    max_pages = 500
 
     def extract(self) -> list[JobListing]:
         jobs: list[JobListing] = []

@@ -61,8 +61,48 @@ export function compactLocation(locations: string[]) {
   return `${locations[0]} +${locations.length - 1}`;
 }
 
+export function displayCompanyName(company: string) {
+  const labels: Record<string, string> = {
+    andurilindustries: "Anduril Industries",
+    agilityrobotics: "Agility Robotics",
+    akunacapital: "Akuna Capital",
+    apptronik: "Apptronik",
+    arcinstitute: "Arc Institute",
+    betterment: "Betterment",
+    beyondtrust: "BeyondTrust",
+    billcom: "BILL",
+    celonis: "Celonis",
+    dialpad: "Dialpad",
+    digitalocean98: "DigitalOcean",
+    doordashusa: "DoorDash",
+    fal: "fal",
+    graphcore: "Graphcore",
+    keepersecurity: "Keeper Security",
+    knowbe4: "KnowBe4",
+    lightningai: "Lightning AI",
+    motional: "Motional",
+    nebius: "Nebius",
+    orcasecurity: "Orca Security",
+    pingidentity: "Ping Identity",
+    recordedfuture: "Recorded Future",
+    remotecom: "Remote",
+    rocketlab: "Rocket Lab",
+    fiveringsllc: "Five Rings",
+    hubspotjobs: "HubSpot",
+    optiverus: "Optiver",
+    stabilityai: "Stability AI",
+    surveymonkey: "SurveyMonkey",
+    tigergraph: "TigerGraph",
+    sourcegraph91: "Sourcegraph",
+    spacex: "SpaceX",
+    wizinc: "Wiz",
+    worldlabs: "World Labs",
+  };
+  return labels[company] ?? company;
+}
+
 export function companyInitials(company: string) {
-  const words = company.split(/\s+/).filter(Boolean);
+  const words = displayCompanyName(company).split(/\s+/).filter(Boolean);
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
 }

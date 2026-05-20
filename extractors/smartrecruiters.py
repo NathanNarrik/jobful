@@ -13,7 +13,7 @@ class SmartRecruitersExtractor(BaseExtractor):
     provider = "smartrecruiters"
     api_url_template = "https://api.smartrecruiters.com/v1/companies/{board_token}/postings"
     page_limit = 100
-    max_pages = 20
+    max_pages = 200
 
     def extract(self) -> list[JobListing]:
         jobs = self._fetch_all_jobs()

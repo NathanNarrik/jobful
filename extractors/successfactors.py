@@ -15,7 +15,7 @@ from models import JobListing
 class SuccessFactorsExtractor(BaseExtractor):
     provider = "successfactors"
     page_limit = 25
-    max_pages = 20
+    max_pages = 300
     detail_workers = 8
 
     def extract(self) -> list[JobListing]:
