@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.cli.extract import main
+from app.cli.ollama_check import main
 
 
 if __name__ == "__main__":

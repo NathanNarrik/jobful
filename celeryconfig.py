@@ -4,7 +4,7 @@ import os
 
 from kombu import Exchange, Queue
 
-from queueing import QueueName
+from app.queueing import QueueName
 
 
 task_serializer = "json"

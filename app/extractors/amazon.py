@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import ValidationError
+
+from app.extractors.base import BaseExtractor, ExtractionError
+from app.extractors.text import html_to_text
+from app.models import JobListing
+
+
+class AmazonExtractor(BaseExtractor):
+    provider = "amazon"
+    api_url_template = (
+        "https://www.amazon.jobs/en/search.json"
+        "?offset={offset}&result_limit={limit}&sort=relevant"
+    )
+    page_limit = 100
+    max_pages = 20
+
+    def extract(self) -> list[JobListing]:
+        payload = self._fetch_all_pages()
+        listings: list[JobListing] = []
+
+        for job in payload:
+            try:
+                listings.append(self._map_job(job))
+            except (KeyError, TypeError, ValidationError, ValueError) as exc:
+                self.logger.error("Failed mapping Amazon job", exc_info=True)
+                raise ExtractionError("Malformed Amazon job payload", raw_payload=job) from exc
+
+        self.logger.info("Fetched %s Amazon jobs", len(listings), extra={"company": "Amazon"})
+        return listings
+
+    def _fetch_all_pages(self) -> list[dict[str, Any]]:
+        jobs: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        for page in range(self.max_pages):
+            url = self.api_url_template.format(offset=page * self.page_limit, limit=self.page_limit)
+            payload = self._get_json(url)
+            if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
+                raise ExtractionError("Unexpected Amazon jobs payload schema", raw_payload=payload)
+
+            page_jobs = [job for job in payload["jobs"] if isinstance(job, dict)]
+            if not page_jobs:
+                break
+
+            new_jobs: list[dict[str, Any]] = []
+            for job in page_jobs:
+                job_id = str(job.get("id_icims") or job.get("job_path") or job.get("title") or "").strip()
+                if job_id and job_id in seen_ids:
+                    continue
+                if job_id:
+                    seen_ids.add(job_id)
+                new_jobs.append(job)
+
+            if not new_jobs:
+                break
+
+            jobs.extend(new_jobs)
+            if len(page_jobs) < self.page_limit:
+                break
+
+        return jobs
+
+    def _map_job(self, job: dict[str, Any]) -> JobListing:
+        job_id = str(job.get("id_icims") or job.get("job_path") or job["title"]).strip()
+        description_html = "\n\n".join(
+            str(value)
+            for value in (
+                job.get("description"),
+                job.get("basic_qualifications"),
+                job.get("preferred_qualifications"),
+            )
+            if value
+        )
+
+        return self._build_listing(
+            company_name="Amazon",
+            job_title=self._required_string(job, "title"),
+            job_url=self._job_url(job),
+            ats_job_id=job_id,
+            location=self._locations(job),
+            raw_description=html_to_text(description_html),
+            description_html=description_html or None,
+            employment_type=self._optional_string(job.get("job_type")),
+            departments=self._string_list(job.get("team") or job.get("business_category")),
+            date_posted=self._parse_datetime(job.get("posted_date")),
+        )
+
+    def _job_url(self, job: dict[str, Any]) -> str:
+        job_path = job.get("job_path")
+        if isinstance(job_path, str) and job_path.strip():
+            return f"https://www.amazon.jobs{job_path}"
+        return self._required_string(job, "url_next_step")
+
+    def _locations(self, job: dict[str, Any]) -> list[str]:
+        locations = self._string_list(job.get("normalized_location") or job.get("location"))
+        return locations or ["Unspecified"]
+
+    def _optional_string(self, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None

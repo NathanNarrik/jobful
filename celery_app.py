@@ -12,7 +12,7 @@ celery_app = Celery(
     "jobful",
     broker=REDIS_URL,
     backend=RESULT_BACKEND,
-    include=["tasks"],
+    include=["app.tasks"],
 )
 
 celery_app.config_from_object("celeryconfig")
