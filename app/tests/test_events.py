@@ -15,6 +15,7 @@ from app.db.models import Base
 from app.events.db.import_events import import_events
 from app.events.db.models import EventBase, RecruitingEvent
 from app.events.extract import CompanyEventPageExtractor
+from app.events.extract import parse_date_and_time
 from app.models import EventSourceConfig, RecruitingEventListing
 
 
@@ -156,6 +157,61 @@ END:VCALENDAR
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0].event_type, "career_fair")
         self.assertEqual(events[0].location_type, "in_person")
+
+    def test_jpmorgan_event_json_maps_to_event(self) -> None:
+        extractor = CompanyEventPageExtractor(sample_source())
+        events = []
+        item = {
+            "event_name": "Online Academy - Engineering",
+            "date_start": "02/06/2026",
+            "date_end": "02/06/2026",
+            "start_time": "5:30 PM",
+            "end_time": "7:00 PM",
+            "event_classification": "Informational/Networking",
+            "city": "Tokyo",
+            "external_description": "<p>Student workshop for engineers.</p>",
+        }
+        starts_at = parse_date_and_time(item["date_start"], item["start_time"])
+
+        self.assertEqual(starts_at, datetime(2026, 2, 6, 17, 30, tzinfo=UTC))
+        event = extractor._event_from_mapping(
+            {
+                "name": item["event_name"],
+                "startDate": starts_at.isoformat(),
+                "description": item["external_description"],
+            },
+            fallback_url="https://example.com/events",
+        )
+        events.append(event)
+
+        self.assertEqual(events[0].event_title, "Online Academy - Engineering")
+
+    def test_google_escaped_event_cards_extract_as_evergreen_events(self) -> None:
+        html = r"""
+        \u003cdiv data-cy=\"resultsList\" data-tracking-title=\"Careers OnAir\" data-glue-filter-event-type=\"google-hosted virtual\"\u003e
+          \u003ca href=\"https://careersonair.withgoogle.com/\"\u003e
+            \u003cspan\u003eREGISTRATION IS NOW OPEN\u003c/span\u003e
+            \u003ch3\u003eCareers OnAir\u003c/h3\u003e
+            \u003cspan\u003eVIRTUAL\u003c/span\u003e
+            \u003cp\u003eGoogle recruiting sessions for students and engineers.\u003c/p\u003e
+          \u003c/a\u003e
+        \u003c/div\u003e
+        """
+        extractor = CompanyEventPageExtractor(
+            EventSourceConfig(
+                firm_name="Google",
+                firm_kind="technology",
+                event_page_url="https://www.google.com/about/careers/applications/buildyourfuture/events",
+            )
+        )
+        events = extractor._extract_google_event_cards(extractor._decoded_soup(html))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].event_title, "Careers OnAir")
+        self.assertEqual(events[0].location_type, "virtual")
+        self.assertIsNotNone(events[0].ends_at)
+        self.assertGreater(events[0].ends_at, events[0].starts_at)
+        self.assertIn("students", events[0].audience_tags)
 
 
 if __name__ == "__main__":

@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import logging
 import re
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -123,6 +124,10 @@ class CompanyEventPageExtractor:
         self.session = session or requests.Session()
 
     def extract(self) -> list[RecruitingEventListing]:
+        provider_events = self._extract_provider_events()
+        if provider_events:
+            return self._dedupe(provider_events)
+
         response = self.session.get(
             str(self.source.event_page_url),
             headers={"Accept": "text/html,application/xhtml+xml,text/calendar,*/*", "User-Agent": "JobfulEvents/1.0"},
@@ -135,12 +140,74 @@ class CompanyEventPageExtractor:
 
         html = response.text
         soup = BeautifulSoup(html, "html.parser")
+        decoded_soup = self._decoded_soup(html)
         events = []
         events.extend(self._extract_json_ld(soup))
         events.extend(self._extract_linked_calendars(soup))
         events.extend(self._extract_embedded_json(soup))
+        events.extend(self._extract_google_event_cards(decoded_soup))
+        events.extend(self._extract_nasa_event_cards(soup))
         events.extend(self._extract_html_event_cards(soup))
         return self._dedupe(events)
+
+    def _extract_provider_events(self) -> list[RecruitingEventListing]:
+        hostname = urlparse(str(self.source.event_page_url)).hostname or ""
+        if "jpmorganchase.com" in hostname:
+            return self._extract_jpmorgan_events()
+        return []
+
+    def _extract_jpmorgan_events(self) -> list[RecruitingEventListing]:
+        url = "https://www.jpmorganchase.com/services/json/v1/careers/gate/events.json"
+        response = self.session.get(
+            url,
+            headers={"Accept": "application/json,*/*", "User-Agent": "JobfulEvents/1.0"},
+            timeout=self.timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        events: list[RecruitingEventListing] = []
+        for item in payload.get("events", []):
+            if not isinstance(item, dict):
+                continue
+            starts_at = parse_date_and_time(item.get("date_start"), item.get("start_time"))
+            if starts_at is None:
+                continue
+            ends_at = parse_date_and_time(item.get("date_end"), item.get("end_time"))
+            title = first_string(item, "event_name")
+            if not title:
+                continue
+            event_url = first_string(item, "event_url", "apply_url", "registration_url") or str(self.source.event_page_url)
+            location = [part for part in [first_string(item, "city"), first_string(item, "state"), first_string(item, "country")] if part]
+            description = html_to_text(first_string(item, "external_description") or "")
+            classification = first_string(item, "event_classification") or "recruiting"
+            events.append(
+                self._build_event(
+                    event_title=title,
+                    event_url=event_url,
+                    registration_url=event_url,
+                    source_event_id=first_string(item, "event_id", "id")
+                    or "|".join(
+                        part
+                        for part in [
+                            title,
+                            first_string(item, "date_start"),
+                            first_string(item, "start_time"),
+                            first_string(item, "city"),
+                        ]
+                        if part
+                    ),
+                    event_type=event_type_from_text(classification, title),
+                    audience_tags=audience_tags_from_text(f"{title} {description}"),
+                    location=location,
+                    location_type=location_type_from_text(" ".join(location) or title),
+                    starts_at=starts_at,
+                    ends_at=ends_at,
+                    timezone=first_string(item, "time_zone", "timezone"),
+                    description=description,
+                    raw_payload=item,
+                )
+            )
+        return events
 
     def _extract_json_ld(self, soup: BeautifulSoup) -> list[RecruitingEventListing]:
         events: list[RecruitingEventListing] = []
@@ -229,6 +296,81 @@ class CompanyEventPageExtractor:
                 )
                 events.append(event)
         return events[:50]
+
+    def _extract_google_event_cards(self, soup: BeautifulSoup) -> list[RecruitingEventListing]:
+        events: list[RecruitingEventListing] = []
+        for element in soup.select('[data-cy="resultsList"]'):
+            title = normalize_space(str(element.get("data-tracking-title") or ""))
+            link = element.find("a", href=True)
+            if not title or link is None:
+                continue
+            text = normalize_space(element.get_text(" ", strip=True))
+            event_url = urljoin(str(self.source.event_page_url), str(link["href"]))
+            location_text = first_matching_text(text, ("VIRTUAL", "ONLINE", "ONSITE", "VARIES")) or ""
+            event_type = element.get("data-glue-filter-event-type") or event_type_from_text(title, text)
+            extracted_at = datetime.now(UTC)
+            events.append(
+                self._build_event(
+                    event_title=title,
+                    event_url=event_url,
+                    registration_url=event_url,
+                    source_event_id=event_url,
+                    event_type=str(event_type),
+                    audience_tags=audience_tags_from_text(text),
+                    location=location_from_text(location_text or text),
+                    location_type=location_type_from_text(location_text or text),
+                    starts_at=extracted_at,
+                    ends_at=extracted_at + timedelta(days=365),
+                    timezone=None,
+                    description=text,
+                    raw_payload={
+                        "tracking_title": title,
+                        "event_type": element.get("data-glue-filter-event-type"),
+                        "location": element.get("data-glue-filter-location"),
+                        "topic": element.get("data-glue-filter-topic"),
+                    },
+                )
+            )
+        return events
+
+    def _extract_nasa_event_cards(self, soup: BeautifulSoup) -> list[RecruitingEventListing]:
+        events: list[RecruitingEventListing] = []
+        for element in soup.select("a.hds-event-item[href]"):
+            title_element = element.select_one(".hds-event-title")
+            date_element = element.select_one("[data-event-start-date]")
+            if title_element is None or date_element is None:
+                continue
+            title = normalize_space(title_element.get_text(" ", strip=True))
+            starts_at = self._parse_datetime(date_element.get("data-event-start-date"))
+            if not title or starts_at is None:
+                continue
+            type_element = element.select_one(".hds-event-type")
+            location_element = element.select_one(".hds-event-short-location")
+            event_type = normalize_space(type_element.get_text(" ", strip=True)) if type_element else "event"
+            location = self._string_list(location_element.get_text(" ", strip=True) if location_element else "")
+            event_url = urljoin(str(self.source.event_page_url), str(element["href"]))
+            events.append(
+                self._build_event(
+                    event_title=title,
+                    event_url=event_url,
+                    registration_url=event_url,
+                    source_event_id=str(element.get("event-id") or event_url),
+                    event_type=event_type,
+                    audience_tags=audience_tags_from_text(f"{title} {event_type}"),
+                    location=location,
+                    location_type=location_type_from_text(" ".join(location) or event_type),
+                    starts_at=starts_at,
+                    ends_at=self._parse_timestamp(date_element.get("data-event-timestamp-end")),
+                    timezone=None,
+                    description=normalize_space(element.get_text(" ", strip=True)),
+                    raw_payload={
+                        "event_id": element.get("event-id"),
+                        "display_date": normalize_space(date_element.get_text(" ", strip=True)),
+                        "event_type": event_type,
+                    },
+                )
+            )
+        return events
 
     def _extract_ics(self, content: str, source_url: str) -> list[RecruitingEventListing]:
         events: list[RecruitingEventListing] = []
@@ -374,6 +516,14 @@ class CompanyEventPageExtractor:
                 continue
         return None
 
+    def _parse_timestamp(self, value: object) -> datetime | None:
+        if value is None or str(value).strip() == "":
+            return None
+        try:
+            return datetime.fromtimestamp(float(str(value)), UTC)
+        except ValueError:
+            return None
+
     def _walk_json(self, value: Any) -> Iterable[dict[str, Any]]:
         if isinstance(value, dict):
             yield value
@@ -392,6 +542,18 @@ class CompanyEventPageExtractor:
     def _contains_event_language(self, text: str) -> bool:
         lowered = text.lower()
         return any(token in lowered for token in ("event", "webinar", "career fair", "info session", "recruit", "workshop"))
+
+    def _decoded_soup(self, text: str) -> BeautifulSoup:
+        decoded = (
+            text.replace(r"\u003c", "<")
+            .replace(r"\u003e", ">")
+            .replace(r"\u003d", "=")
+            .replace(r"\u0026", "&")
+            .replace(r"\"", '"')
+            .replace(r"\/", "/")
+        )
+        decoded = html.unescape(decoded)
+        return BeautifulSoup(decoded, "html.parser")
 
     def _string_list(self, value: object) -> list[str]:
         if value is None:
@@ -461,6 +623,28 @@ def parse_ics_datetime(value: str | None) -> datetime | None:
     return None
 
 
+def parse_date_and_time(date_value: object, time_value: object = None) -> datetime | None:
+    if not date_value:
+        return None
+    date_text = normalize_space(str(date_value))
+    time_text = normalize_space(str(time_value or "12:00 AM"))
+    for date_format in ("%m/%d/%Y", "%Y-%m-%d"):
+        try:
+            parsed_date = datetime.strptime(date_text, date_format)
+            break
+        except ValueError:
+            parsed_date = None
+    if parsed_date is None:
+        return None
+    for time_format in ("%I:%M %p", "%H:%M", "%I %p"):
+        try:
+            parsed_time = datetime.strptime(time_text.upper(), time_format).time()
+            return datetime.combine(parsed_date.date(), parsed_time, tzinfo=UTC)
+        except ValueError:
+            continue
+    return parsed_date.replace(tzinfo=UTC)
+
+
 def ics_event_blocks(content: str) -> list[dict[str, str]]:
     lines = unfold_ics_lines(content)
     events: list[dict[str, str]] = []
@@ -495,6 +679,12 @@ def unfold_ics_lines(content: str) -> list[str]:
 
 def clean_ics_text(value: str) -> str:
     return value.replace("\\n", "\n").replace("\\,", ",").replace("\\;", ";").strip()
+
+
+def html_to_text(value: str) -> str:
+    if not value:
+        return ""
+    return normalize_space(BeautifulSoup(value, "html.parser").get_text(" ", strip=True))
 
 
 def first_value(mapping: dict[str, Any], *keys: str) -> Any:
@@ -541,6 +731,8 @@ def location_from_text(text: str) -> list[str]:
     lowered = text.lower()
     if any(token in lowered for token in ("virtual", "online", "webinar", "zoom")):
         return ["Virtual"]
+    if any(token in lowered for token in ("onsite", "on-site", "in-person", "in person")):
+        return ["In person"]
     return []
 
 
@@ -576,6 +768,14 @@ def event_type_from_text(title: str, description: str) -> str:
 def event_type_slug(value: str) -> str:
     normalized = re.sub(r"[^a-z0-9]+", "_", value.strip().lower()).strip("_")
     return normalized or "recruiting"
+
+
+def first_matching_text(text: str, options: tuple[str, ...]) -> str | None:
+    lowered = text.lower()
+    for option in options:
+        if option.lower() in lowered:
+            return option
+    return None
 
 
 def audience_tags_from_text(text: str) -> list[str]:
