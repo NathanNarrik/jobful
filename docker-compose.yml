@@ -16,7 +16,18 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+  events-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: jobful_events
+      POSTGRES_USER: jobful_events
+      POSTGRES_PASSWORD: jobful_events_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - events-postgres-data:/var/lib/postgresql/data
 
 volumes:
   redis-data:
   postgres-data:
+  events-postgres-data:

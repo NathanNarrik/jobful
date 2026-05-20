@@ -33,7 +33,10 @@ task_routes = {
     "jobful.extract_source": {"queue": QueueName.STANDARD.value},
     "jobful.normalize_jobs": {"queue": QueueName.STANDARD.value},
     "jobful.extract_and_normalize_source": {"queue": QueueName.STANDARD.value},
+    "jobful.extract_event_source": {"queue": QueueName.STANDARD.value},
+    "jobful.extract_and_import_event_source": {"queue": QueueName.STANDARD.value},
     "jobful.enqueue_default_sources": {"queue": QueueName.HIGH.value},
+    "jobful.enqueue_default_event_sources": {"queue": QueueName.HIGH.value},
     "jobful.enqueue_urls": {"queue": QueueName.HIGH.value},
     "jobful.record_dead_letter": {"queue": QueueName.DEAD_LETTER.value},
 }

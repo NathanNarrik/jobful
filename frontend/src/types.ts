@@ -44,6 +44,55 @@ export type PaginatedJobsResponse = {
   offset: number;
 };
 
+export type EventListItem = {
+  id: string;
+  firm_name: string;
+  firm_kind: string;
+  event_title: string;
+  event_url: string;
+  registration_url: string | null;
+  event_type: string;
+  audience_tags: string[];
+  location: string[];
+  location_type: string;
+  starts_at: string;
+  ends_at: string | null;
+  timezone: string | null;
+  last_seen_at: string;
+};
+
+export type EventDetail = EventListItem & {
+  source_id: string | null;
+  source_provider: string;
+  source_event_id: string | null;
+  description: string | null;
+  raw_payload: Record<string, unknown> | null;
+  first_seen_at: string;
+  is_active: boolean;
+};
+
+export type PaginatedEventsResponse = {
+  items: EventListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type EventSourceSummary = {
+  id: string;
+  firm_name: string;
+  firm_kind: string;
+  source_url: string;
+  source_provider: string;
+  is_active: boolean;
+  last_scraped_at: string | null;
+  last_success_at: string | null;
+  last_error_type: string | null;
+  last_error_message: string | null;
+  event_count: number;
+  active_event_count: number;
+};
+
 export type SkillCount = {
   skill: string;
   count: number;
@@ -91,4 +140,13 @@ export type DiscoveryFilters = {
   remote_type: string;
   visa_status: string;
   skill: string;
+};
+
+export type EventFilters = {
+  search: string;
+  firm: string;
+  firm_kind: string;
+  event_type: string;
+  location_type: string;
+  starts_after: string;
 };

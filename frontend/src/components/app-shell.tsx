@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { BriefcaseBusiness, Building2, LayoutDashboard } from "lucide-react";
+import { BriefcaseBusiness, Building2, CalendarDays, LayoutDashboard } from "lucide-react";
 import { clsx } from "clsx";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -20,6 +20,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <nav className="flex items-center gap-1 rounded-lg border border-[var(--line)] bg-[var(--surface-soft)] p-1">
             <NavLink href="/discover" active={pathname.startsWith("/discover")} icon={<BriefcaseBusiness size={16} />}>
               Discover
+            </NavLink>
+            <NavLink href="/events" active={pathname.startsWith("/events")} icon={<CalendarDays size={16} />}>
+              Events
             </NavLink>
             <NavLink href="/companies" active={pathname.startsWith("/companies")} icon={<Building2 size={16} />}>
               Companies

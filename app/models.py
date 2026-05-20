@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_serializer
 
@@ -91,6 +91,111 @@ class PullResult(BaseModel):
     sources: list[PullSourceResult]
     jobs: list[JobListing]
     failures: list[PullFailure]
+
+
+FirmKind = Literal[
+    "technology",
+    "finance",
+    "consulting",
+    "healthcare",
+    "government",
+    "startup",
+    "industrial",
+    "retail",
+    "other",
+]
+EventLocationType = Literal["virtual", "in_person", "hybrid", "unknown"]
+
+
+class RecruitingEventListing(BaseModel):
+    """Recruiting event emitted by an event-source extractor."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    firm_name: str = Field(min_length=1)
+    firm_kind: FirmKind = "other"
+    event_title: str = Field(min_length=1)
+    event_url: HttpUrl
+    registration_url: HttpUrl | None = None
+    source_provider: str = Field(default="company_events", min_length=1)
+    source_event_id: str | None = None
+    event_type: str = Field(default="recruiting", min_length=1)
+    audience_tags: list[str] = Field(default_factory=list)
+    location: list[str] = Field(default_factory=list)
+    location_type: EventLocationType = "unknown"
+    starts_at: datetime
+    ends_at: datetime | None = None
+    timezone: str | None = None
+    description: str | None = None
+    raw_payload: dict[str, Any] | None = None
+    content_hash: str = Field(min_length=64, max_length=64)
+    extracted_at: datetime
+
+    @field_serializer("event_url")
+    def serialize_event_url(self, event_url: HttpUrl) -> str:
+        return str(event_url)
+
+    @field_serializer("registration_url")
+    def serialize_registration_url(self, registration_url: HttpUrl | None) -> str | None:
+        return str(registration_url) if registration_url is not None else None
+
+
+class EventSourceConfig(BaseModel):
+    """Explicit public event page source used by the event fetcher."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    firm_name: str = Field(min_length=1)
+    firm_kind: FirmKind = "other"
+    event_page_url: HttpUrl
+    source_provider: str = "company_events"
+
+    @field_serializer("event_page_url")
+    def serialize_event_page_url(self, event_page_url: HttpUrl) -> str:
+        return str(event_page_url)
+
+
+class EventPullFailure(BaseModel):
+    """An event source URL that could not be extracted."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    source_url: str
+    firm_name: str
+    firm_kind: str
+    source_provider: str
+    error_type: str
+    message: str
+
+
+class EventPullSourceResult(BaseModel):
+    """Per-source event extraction metadata."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    source_url: str
+    firm_name: str
+    firm_kind: str
+    source_provider: str
+    status: Literal["success", "failed"]
+    event_count: int
+    error_type: str | None = None
+    message: str | None = None
+
+
+class EventPullResult(BaseModel):
+    """Serializable artifact for one recruiting-event extraction run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    generated_at: datetime
+    source_count: int
+    successful_source_count: int
+    failed_source_count: int
+    event_count: int
+    sources: list[EventPullSourceResult]
+    events: list[RecruitingEventListing]
+    failures: list[EventPullFailure]
 
 
 ProgramType = Literal["internship", "new_grad", "experienced", "other"]

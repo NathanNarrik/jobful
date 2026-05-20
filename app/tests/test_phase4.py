@@ -8,10 +8,11 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_events_db
 from app.api.main import app
 from app.db.import_phase3 import import_result
 from app.db.models import Base, Company, Job, UserApplication
+from app.events.db.models import EventBase
 from app.models import JobListing, JobNormalization, NormalizationResult, NormalizedJobRecord
 
 
@@ -78,6 +79,7 @@ class Phase4Tests(unittest.TestCase):
             poolclass=StaticPool,
         )
         Base.metadata.create_all(self.engine)
+        EventBase.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine, autoflush=False, expire_on_commit=False, future=True)
 
         def override_db():
@@ -85,6 +87,7 @@ class Phase4Tests(unittest.TestCase):
                 yield session
 
         app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_events_db] = override_db
         self.client = TestClient(app)
 
     def tearDown(self) -> None:
@@ -135,7 +138,7 @@ class Phase4Tests(unittest.TestCase):
         with Session(self.engine) as session:
             import_result(session, sample_result())
 
-        self.assertEqual(self.client.get("/health").json(), {"status": "ok", "database": "ok"})
+        self.assertEqual(self.client.get("/health").json(), {"status": "ok", "database": "ok", "events_database": "ok"})
         jobs = self.client.get(
             "/jobs?skill=python&grad_year=2026&academic_level=undergraduate&company=example"
         ).json()
