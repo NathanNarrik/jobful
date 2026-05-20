@@ -31,7 +31,7 @@ Use this path when the company already uses a supported ATS.
 2. Dry-run queue classification when using Celery:
 
    ```powershell
-   python phase2.py --input-file sources_new_companies.txt --dry-run
+   python -m phases.phase2 --input-file sources_new_companies.txt --dry-run
    ```
 
 3. Pull the sources:
@@ -43,7 +43,7 @@ Use this path when the company already uses a supported ATS.
 4. Normalize:
 
    ```powershell
-   python phase3.py outputs/new_pull.json -o outputs/new_normalized.json --no-ollama
+   python -m phases.phase3 outputs/new_pull.json -o outputs/new_normalized.json --no-ollama
    ```
 
 5. Import:
@@ -161,7 +161,7 @@ Before importing a new provider's data, check the generated artifact:
 
 ```powershell
 python main.py https://new-provider.example/jobs -o outputs/new_provider_pull.json
-python phase3.py outputs/new_provider_pull.json -o outputs/new_provider_normalized.json --no-ollama
+python -m phases.phase3 outputs/new_provider_pull.json -o outputs/new_provider_normalized.json --no-ollama
 python -m db.import_phase3 outputs/new_provider_normalized.json
 ```
 

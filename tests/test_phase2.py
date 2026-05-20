@@ -177,7 +177,8 @@ class Phase2Tests(unittest.TestCase):
         completed = subprocess.run(
             [
                 sys.executable,
-                "phase2.py",
+                "-m",
+                "phases.phase2",
                 "https://www.amazon.jobs/en/",
                 "https://jobs.ashbyhq.com/ashby",
                 "--dry-run",

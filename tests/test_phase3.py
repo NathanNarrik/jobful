@@ -225,7 +225,8 @@ class Phase3Tests(unittest.TestCase):
             completed = subprocess.run(
                 [
                     sys.executable,
-                    "phase3.py",
+                    "-m",
+                    "phases.phase3",
                     str(input_path),
                     "-o",
                     str(output_path),
@@ -256,7 +257,8 @@ class Phase3Tests(unittest.TestCase):
             completed = subprocess.run(
                 [
                     sys.executable,
-                    "phase3_audit.py",
+                    "-m",
+                    "phases.phase3_audit",
                     str(input_path),
                     "-o",
                     str(output_path),

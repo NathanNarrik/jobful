@@ -57,7 +57,7 @@ Career URL
 For Phase 2:
 
 ```text
-Celery Beat or phase2.py
+Celery Beat or phases/phase2.py
   -> Redis queue
   -> Celery worker
   -> cli.extract.extract_single_url(...)
@@ -67,8 +67,8 @@ Celery Beat or phase2.py
 ```
 
 The important design choice is that the manual CLI and Celery workers share the
-same extraction path. Root command files such as `main.py`, `phase2.py`, and
-`phase3.py` are compatibility wrappers; their implementations live in `cli/`.
+same extraction path. Root command files such as `main.py`, `phases/phase2.py`, and
+`phases/phase3.py` are compatibility wrappers; their implementations live in `cli/`.
 
 ## Package Layout
 
@@ -112,7 +112,7 @@ Important functions:
 - `dedupe_urls(...)`: trims, removes blank/commented/duplicate URLs
 - `write_result(...)`: writes a `PullResult` JSON artifact
 
-### `phase2.py` / `cli.enqueue`
+### `phases/phase2.py` / `cli.enqueue`
 
 Manual Phase 2 enqueue CLI.
 
@@ -127,12 +127,12 @@ Responsibilities:
 Useful commands:
 
 ```powershell
-python phase2.py --include-defaults --dry-run
-python phase2.py https://boards.greenhouse.io/airbnb --queue jobful:high
-python phase2.py --input-file sources/sources_user_requested_companies_expanded.txt
+python -m phases.phase2 --include-defaults --dry-run
+python -m phases.phase2 https://boards.greenhouse.io/airbnb --queue jobful:high
+python -m phases.phase2 --input-file sources/sources_user_requested_companies_expanded.txt
 ```
 
-### `phase2_status.py` / `cli.queue_status`
+### `phases/phase2_status.py` / `cli.queue_status`
 
 Queue and failure monitor.
 
@@ -145,10 +145,10 @@ Responsibilities:
 Useful command:
 
 ```powershell
-python phase2_status.py
+python -m phases.phase2_status
 ```
 
-### `phase3.py` / `cli.normalize`
+### `phases/phase3.py` / `cli.normalize`
 
 Phase 3 normalization CLI.
 
@@ -163,22 +163,22 @@ Responsibilities:
 Useful commands:
 
 ```powershell
-python phase3.py outputs/full_default_confirmation.json --limit 500 --no-ollama
-python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_full_default_normalized.json --no-ollama
+python -m phases.phase3 outputs/full_default_confirmation.json --limit 500 --no-ollama
+python -m phases.phase3 outputs/full_default_confirmation.json -o outputs/phase3_full_default_normalized.json --no-ollama
 ```
 
-### `phase3_audit.py` / `cli.audit`
+### `phases/phase3_audit.py` / `cli.audit`
 
 Creates CSV samples from a normalized artifact for human review.
 
 Useful commands:
 
 ```powershell
-python phase3_audit.py outputs/phase3_full_default_normalized.json -o outputs/phase3_audit_sample_100.csv --sample-size 100
-python phase3_audit.py outputs/phase3_full_default_normalized.json -o outputs/phase3_needs_review.csv --needs-review-only --sample-size 200
+python -m phases.phase3_audit outputs/phase3_full_default_normalized.json -o outputs/phase3_audit_sample_100.csv --sample-size 100
+python -m phases.phase3_audit outputs/phase3_full_default_normalized.json -o outputs/phase3_needs_review.csv --needs-review-only --sample-size 200
 ```
 
-### `phase3_ollama_check.py`
+### `phases/phase3_ollama_check.py`
 
 Runs a small smoke request against the configured local Ollama server and
 validates that the model can return a `JobNormalization` object.
@@ -186,7 +186,7 @@ validates that the model can return a `JobNormalization` object.
 Useful command:
 
 ```powershell
-python phase3_ollama_check.py
+python -m phases.phase3_ollama_check
 ```
 
 ## Data Models
@@ -400,7 +400,7 @@ Use them like:
 
 ```powershell
 python main.py --input-file sources/sources_user_requested_companies_expanded.txt
-python phase2.py --input-file sources/sources_user_requested_companies_expanded.txt
+python -m phases.phase2 --input-file sources/sources_user_requested_companies_expanded.txt
 ```
 
 ## Phase 2 Orchestration
@@ -536,7 +536,7 @@ falls back to no proxy rather than crashing before making a request.
 
 ## Phase 3 Normalization
 
-Phase 3 lives in `normalizers/` plus the `phase3.py` CLI.
+Phase 3 lives in `normalizers/` plus the `phases/phase3.py` CLI.
 
 ### `normalizers/cleaner.py`
 
@@ -582,7 +582,7 @@ Environment variables:
 - `JOBFUL_OLLAMA_MAX_CHARS`
 
 The local Ollama path is covered by a mocked test and has also been verified
-against `mistral:latest` through `phase3_ollama_check.py` and
+against `mistral:latest` through `phases/phase3_ollama_check.py` and
 `outputs/phase3_ollama_smoke.json`.
 
 ### `normalizers/pipeline.py`
@@ -671,21 +671,21 @@ python -m celery -A celery_app beat --loglevel=INFO
 Enqueue work:
 
 ```powershell
-python phase2.py https://boards.greenhouse.io/airbnb --queue jobful:high
+python -m phases.phase2 https://boards.greenhouse.io/airbnb --queue jobful:high
 ```
 
 Inspect status:
 
 ```powershell
-python phase2_status.py
+python -m phases.phase2_status
 ```
 
 Normalize a pull artifact:
 
 ```powershell
-python phase3.py outputs/full_default_confirmation.json --limit 500 --no-ollama
-python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_hybrid_sample_25.json --limit 25
-python phase3_audit.py outputs/phase3_full_default_normalized.json -o outputs/phase3_audit_sample_100.csv --sample-size 100
+python -m phases.phase3 outputs/full_default_confirmation.json --limit 500 --no-ollama
+python -m phases.phase3 outputs/full_default_confirmation.json -o outputs/phase3_hybrid_sample_25.json --limit 25
+python -m phases.phase3_audit outputs/phase3_full_default_normalized.json -o outputs/phase3_audit_sample_100.csv --sample-size 100
 ```
 
 Stop Redis:
@@ -700,10 +700,10 @@ These commands were used to verify the current local state:
 
 ```powershell
 python main.py -o outputs/full_default_confirmation.json --workers 12 --timeout 8
-python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_full_default_normalized.json --no-ollama
+python -m phases.phase3 outputs/full_default_confirmation.json -o outputs/phase3_full_default_normalized.json --no-ollama
 python -m unittest discover -s tests
 docker compose exec redis redis-cli ping
-python phase2_status.py
+python -m phases.phase2_status
 ```
 
 Phase 2 was also verified with:
