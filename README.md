@@ -56,9 +56,9 @@ Start by implementing extractors for:
 4.  **Workday:** API structure -> native CXS endpoints with Playwright browser fallback for blocked pages.
 
 ### 3.4 Implementation Steps
-1.  **Models:** Define `JobListing` in `models.py`.
+1.  **Models:** Define `JobListing` in `app/models.py`.
 2.  **Extractors:** Create a `base_extractor.py` (abstract class), and implement `greenhouse.py`, `lever.py`, `ashby.py`, and `workday.py`. Handle API requests and map JSON to the Pydantic model.
-3.  **Router:** Create `router.py` to parse URLs, extract the `board_token`, and trigger the right extractor.
+3.  **Router:** Create `app/router.py` to parse URLs, extract the `board_token`, and trigger the right extractor.
 4.  **Resilience:** Implement robust `try/except` blocks for network timeouts and unexpected schemas, utilizing Python's `logging` module.
 
 ---
@@ -92,11 +92,13 @@ python main.py --input-file my_sources.txt --include-defaults --workers 12 --tim
 ```
 
 For the standard source and extractor growth workflow, see
-[`ADDING_SOURCES_AND_EXTRACTORS.md`](ADDING_SOURCES_AND_EXTRACTORS.md).
+[`info/ADDING_SOURCES_AND_EXTRACTORS.md`](info/ADDING_SOURCES_AND_EXTRACTORS.md).
 
-The root command files are intentionally thin wrappers. The command
-implementations live in `cli/`, while shared extraction, normalization, storage,
-and API code live in `extractors/`, `normalizers/`, `db/`, and `api/`.
+The root `main.py` command is intentionally a thin wrapper. Backend packages now
+live under `app/`: command implementations in `app/cli/` and `app/phases/`,
+shared extraction in `app/extractors/`, normalization in `app/normalizers/`,
+storage in `app/db/`, API routes in `app/api/`, and seed lists in
+`app/sources/`.
 
 ---
 
@@ -146,17 +148,17 @@ python -m celery -A celery_app beat --loglevel=INFO --max-interval=5
 Submit work manually:
 
 ```bash
-python phase2.py --include-defaults --dry-run
-python phase2.py --include-defaults
-python phase2.py https://boards.greenhouse.io/airbnb --queue jobful:high
-python phase2.py --input-file sources_user_requested_companies_expanded.txt
-python phase2.py --include-defaults --no-locks
+python -m app.phases.phase2 --include-defaults --dry-run
+python -m app.phases.phase2 --include-defaults
+python -m app.phases.phase2 https://boards.greenhouse.io/airbnb --queue jobful:high
+python -m app.phases.phase2 --input-file app/sources/sources_user_requested_companies_expanded.txt
+python -m app.phases.phase2 --include-defaults --no-locks
 ```
 
 Inspect queue status and recent dead letters:
 
 ```bash
-python phase2_status.py
+python -m app.phases.phase2_status
 ```
 
 Queue behavior:
@@ -204,13 +206,13 @@ records.
 Normalize a Phase 1 pull artifact with heuristics only:
 
 ```bash
-python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_full_default_normalized.json --no-ollama
+python -m app.phases.phase3 outputs/full_default_confirmation.json -o outputs/phase3_full_default_normalized.json --no-ollama
 ```
 
 Normalize a smaller sample:
 
 ```bash
-python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_sample_500.json --limit 500 --no-ollama
+python -m app.phases.phase3 outputs/full_default_confirmation.json -o outputs/phase3_sample_500.json --limit 500 --no-ollama
 ```
 
 Run hybrid mode with Ollama enabled:
@@ -218,20 +220,20 @@ Run hybrid mode with Ollama enabled:
 ```bash
 $env:JOBFUL_USE_OLLAMA = "true"
 $env:JOBFUL_OLLAMA_MODEL = "mistral"
-python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_hybrid_sample_25.json --limit 25
+python -m app.phases.phase3 outputs/full_default_confirmation.json -o outputs/phase3_hybrid_sample_25.json --limit 25
 ```
 
 Force Ollama for every record in a tiny sample:
 
 ```bash
-python phase3.py outputs/full_default_confirmation.json -o outputs/phase3_ollama_sample_1.json --limit 1 --ollama-mode all
+python -m app.phases.phase3 outputs/full_default_confirmation.json -o outputs/phase3_ollama_sample_1.json --limit 1 --ollama-mode all
 ```
 
 Create CSV files for manual audit:
 
 ```bash
-python phase3_audit.py outputs/phase3_full_default_normalized.json -o outputs/phase3_audit_sample_100.csv --sample-size 100
-python phase3_audit.py outputs/phase3_full_default_normalized.json -o outputs/phase3_needs_review.csv --needs-review-only --sample-size 200
+python -m app.phases.phase3_audit outputs/phase3_full_default_normalized.json -o outputs/phase3_audit_sample_100.csv --sample-size 100
+python -m app.phases.phase3_audit outputs/phase3_full_default_normalized.json -o outputs/phase3_needs_review.csv --needs-review-only --sample-size 200
 ```
 
 Optional Ollama configuration:
@@ -247,7 +249,7 @@ $env:JOBFUL_OLLAMA_MAX_CHARS = "4000"
 Check whether the configured local model can return valid normalization JSON:
 
 ```bash
-python phase3_ollama_check.py
+python -m app.phases.phase3_ollama_check
 ```
 
 The normalized artifact contains each original `JobListing`, a
@@ -292,19 +294,19 @@ python -m alembic upgrade head
 Import the full Phase 3 normalized artifact:
 
 ```bash
-python -m db.import_phase3 outputs/phase3_full_default_normalized.json
+python -m app.db.import_phase3 outputs/phase3_full_default_normalized.json
 ```
 
 Re-running the same import updates existing rows instead of duplicating jobs:
 
 ```bash
-python -m db.import_phase3 outputs/phase3_full_default_normalized.json
+python -m app.db.import_phase3 outputs/phase3_full_default_normalized.json
 ```
 
 Run the API:
 
 ```bash
-python -m uvicorn api.main:app --reload
+python -m uvicorn app.api.main:app --reload
 ```
 
 Verify the core endpoints:
@@ -320,7 +322,7 @@ Invoke-RestMethod http://localhost:8000/stats
 Useful maintenance command:
 
 ```bash
-python -m db.mark_stale --older-than-hours 48
+python -m app.db.mark_stale --older-than-hours 48
 ```
 
 ---
@@ -329,12 +331,12 @@ python -m db.mark_stale --older-than-hours 48
 
 Phase 5 adds the local Next.js frontend and personal application tracking
 foundation. The design-source details are captured in
-[`PHASE5_README.md`](PHASE5_README.md).
+[`info/PHASE5_README.md`](info/PHASE5_README.md).
 
 Run the API:
 
 ```bash
-python -m uvicorn api.main:app --reload
+python -m uvicorn app.api.main:app --reload
 ```
 
 Run the frontend:
