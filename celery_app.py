@@ -16,3 +16,9 @@ celery_app = Celery(
 )
 
 celery_app.config_from_object("celeryconfig")
+
+app = celery_app
+celery = celery_app
+
+
+__all__ = ["REDIS_URL", "RESULT_BACKEND", "app", "celery", "celery_app"]

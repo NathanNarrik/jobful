@@ -92,7 +92,7 @@ python main.py --input-file my_sources.txt --include-defaults --workers 12 --tim
 ```
 
 For the standard source and extractor growth workflow, see
-[`ADDING_SOURCES_AND_EXTRACTORS.md`](ADDING_SOURCES_AND_EXTRACTORS.md).
+[`info/ADDING_SOURCES_AND_EXTRACTORS.md`](info/ADDING_SOURCES_AND_EXTRACTORS.md).
 
 The root command files are intentionally thin wrappers. The command
 implementations live in `cli/`, while shared extraction, normalization, storage,
@@ -121,13 +121,13 @@ docker compose up -d redis
 Run workers for each queue:
 
 ```bash
-python -m celery -A celery_app worker -Q jobful:high,jobful:standard,jobful:slow --loglevel=INFO
+python -m celery -A celery_app worker -Q jobful:high,jobful:standard,jobful:slow,jobful:dead_letter --loglevel=INFO
 ```
 
 On Windows, use Celery's solo pool:
 
 ```bash
-python -m celery -A celery_app worker -P solo -Q jobful:high,jobful:standard,jobful:slow --loglevel=INFO
+python -m celery -A celery_app worker -P solo -Q jobful:high,jobful:standard,jobful:slow,jobful:dead_letter --loglevel=INFO
 ```
 
 Start the beat scheduler in another terminal:
@@ -149,7 +149,7 @@ Submit work manually:
 python phase2.py --include-defaults --dry-run
 python phase2.py --include-defaults
 python phase2.py https://boards.greenhouse.io/airbnb --queue jobful:high
-python phase2.py --input-file sources_user_requested_companies_expanded.txt
+python phase2.py --input-file sources/sources_user_requested_companies_expanded.txt
 python phase2.py --include-defaults --no-locks
 ```
 
@@ -329,7 +329,7 @@ python -m db.mark_stale --older-than-hours 48
 
 Phase 5 adds the local Next.js frontend and personal application tracking
 foundation. The design-source details are captured in
-[`PHASE5_README.md`](PHASE5_README.md).
+[`info/PHASE5_README.md`](info/PHASE5_README.md).
 
 Run the API:
 

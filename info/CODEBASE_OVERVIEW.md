@@ -102,7 +102,7 @@ Useful commands:
 ```powershell
 python main.py
 python main.py https://boards.greenhouse.io/airbnb -o outputs/custom_pull.json
-python main.py --input-file sources_user_requested_companies_expanded.txt --workers 12 --timeout 8
+python main.py --input-file sources/sources_user_requested_companies_expanded.txt --workers 12 --timeout 8
 ```
 
 Important functions:
@@ -129,7 +129,7 @@ Useful commands:
 ```powershell
 python phase2.py --include-defaults --dry-run
 python phase2.py https://boards.greenhouse.io/airbnb --queue jobful:high
-python phase2.py --input-file sources_user_requested_companies_expanded.txt
+python phase2.py --input-file sources/sources_user_requested_companies_expanded.txt
 ```
 
 ### `phase2_status.py` / `cli.queue_status`
@@ -377,37 +377,38 @@ descriptions into `raw_description`.
 
 ## Source Lists
 
-### `sources.py`
+### `sources/sources.py`
 
 Defines `DEFAULT_CAREER_URLS`, the main seed list used by `python main.py` and
 Phase 2 default enqueue tasks.
 
 ### Additional source text files
 
-The root-level `sources_*.txt` files are curated or discovered URL lists. They
+The `sources/sources_*.txt` files are curated or discovered URL lists. They
 are not automatically loaded unless passed with `--input-file`.
 
 Examples:
 
-- `sources_fortune_tech.txt`
-- `sources_fortune_plus_quant.txt`
-- `sources_finance_quant_expansion.txt`
-- `sources_top_companies_expanded_candidates.txt`
-- `sources_user_requested_company_targets.txt`
-- `sources_user_requested_companies_expanded.txt`
+- `sources/sources_fortune_tech.txt`
+- `sources/sources_fortune_plus_quant.txt`
+- `sources/sources_finance_quant_expansion.txt`
+- `sources/sources_top_companies_expanded_candidates.txt`
+- `sources/sources_user_requested_company_targets.txt`
+- `sources/sources_user_requested_companies_expanded.txt`
 
 Use them like:
 
 ```powershell
-python main.py --input-file sources_user_requested_companies_expanded.txt
-python phase2.py --input-file sources_user_requested_companies_expanded.txt
+python main.py --input-file sources/sources_user_requested_companies_expanded.txt
+python phase2.py --input-file sources/sources_user_requested_companies_expanded.txt
 ```
 
 ## Phase 2 Orchestration
 
 ### `celery_app.py`
 
-Creates the Celery app.
+Creates the Celery app used by Celery's `-A celery_app` command and by internal
+task imports.
 
 Environment variables:
 
