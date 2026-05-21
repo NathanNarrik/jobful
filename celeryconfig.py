@@ -33,11 +33,13 @@ task_routes = {
     "jobful.extract_source": {"queue": QueueName.STANDARD.value},
     "jobful.normalize_jobs": {"queue": QueueName.STANDARD.value},
     "jobful.extract_and_normalize_source": {"queue": QueueName.STANDARD.value},
+    "jobful.extract_normalize_import_source": {"queue": QueueName.STANDARD.value},
     "jobful.extract_event_source": {"queue": QueueName.STANDARD.value},
     "jobful.extract_and_import_event_source": {"queue": QueueName.STANDARD.value},
     "jobful.enqueue_default_sources": {"queue": QueueName.HIGH.value},
     "jobful.enqueue_default_event_sources": {"queue": QueueName.HIGH.value},
     "jobful.enqueue_urls": {"queue": QueueName.HIGH.value},
+    "jobful.mark_stale_jobs": {"queue": QueueName.STANDARD.value},
     "jobful.record_dead_letter": {"queue": QueueName.DEAD_LETTER.value},
 }
 
@@ -53,19 +55,23 @@ def _schedule_seconds(env_name: str, default: int) -> int:
 
 
 beat_schedule = {
-    "enqueue-high-priority-hourly": {
+    "enqueue-high-priority-every-fifteen-minutes": {
         "task": "jobful.enqueue_default_sources",
-        "schedule": _schedule_seconds("JOBFUL_BEAT_HIGH_SECONDS", 60 * 60),
+        "schedule": _schedule_seconds("JOBFUL_BEAT_HIGH_SECONDS", 15 * 60),
         "kwargs": {"target_queue": QueueName.HIGH.value},
     },
-    "enqueue-standard-every-four-hours": {
+    "enqueue-standard-every-thirty-minutes": {
         "task": "jobful.enqueue_default_sources",
-        "schedule": _schedule_seconds("JOBFUL_BEAT_STANDARD_SECONDS", 4 * 60 * 60),
+        "schedule": _schedule_seconds("JOBFUL_BEAT_STANDARD_SECONDS", 30 * 60),
         "kwargs": {"target_queue": QueueName.STANDARD.value},
     },
-    "enqueue-slow-every-twelve-hours": {
+    "enqueue-slow-every-thirty-minutes": {
         "task": "jobful.enqueue_default_sources",
-        "schedule": _schedule_seconds("JOBFUL_BEAT_SLOW_SECONDS", 12 * 60 * 60),
+        "schedule": _schedule_seconds("JOBFUL_BEAT_SLOW_SECONDS", 30 * 60),
         "kwargs": {"target_queue": QueueName.SLOW.value},
+    },
+    "mark-stale-jobs-every-thirty-minutes": {
+        "task": "jobful.mark_stale_jobs",
+        "schedule": _schedule_seconds("JOBFUL_BEAT_STALE_SECONDS", 30 * 60),
     },
 }

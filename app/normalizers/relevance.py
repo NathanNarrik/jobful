@@ -33,6 +33,16 @@ STRONG_CS_TITLE_TERMS = (
     "platform engineer",
     "product security",
     "qa automation",
+    "quant developer",
+    "quant engineer",
+    "quant research",
+    "quant researcher",
+    "quantitative analyst",
+    "quantitative developer",
+    "quantitative engineer",
+    "quantitative research",
+    "quantitative researcher",
+    "quantitative trader",
     "robotics software",
     "security engineer",
     "site reliability",
@@ -74,6 +84,8 @@ CS_DEPARTMENT_TERMS = (
     "machine learning",
     "platform engineering",
     "product engineering",
+    "quant research",
+    "quantitative research",
     "security engineering",
     "software",
 )
@@ -152,6 +164,7 @@ TECHNICAL_ROLE_NOUNS = (
 )
 
 CS_DESCRIPTION_TERMS = (
+    " alpha research ",
     " computer science ",
     " software engineering ",
     " programming ",
@@ -162,8 +175,10 @@ CS_DESCRIPTION_TERMS = (
     " distributed systems ",
     " information technology ",
     " ict ",
+    " market microstructure ",
     " network ",
     " oracle hcm ",
+    " statistical modeling ",
     " software ",
 )
 

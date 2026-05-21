@@ -37,6 +37,23 @@ NICE_TO_HAVE_MARKERS = (
     "plus if",
 )
 
+STUDENT_YEAR_CONTEXT_MARKERS = (
+    "graduat",
+    "class of",
+    "degree",
+    "student",
+    "intern",
+    "internship",
+    "undergrad",
+    "new grad",
+    "university",
+    "college",
+    "summer",
+    "fall",
+    "winter",
+    "spring",
+)
+
 
 def heuristic_normalize(job: JobListing, cleaned_description: str) -> JobNormalization:
     searchable = _searchable(job, cleaned_description)
@@ -87,9 +104,10 @@ def _searchable(job: JobListing, cleaned_description: str) -> str:
 
 
 def _program_type(text: str) -> ProgramType:
-    internship_markers = ("intern", "internship", "co-op", "coop", "summer analyst")
     new_grad_markers = ("new grad", "new graduate", "entry level", "university grad", "graduate program")
-    if any(_contains_alias(text, marker) for marker in internship_markers):
+    if re.search(r"\b(?:intern|interns|internship|internships|co-op|co-ops|coop|coops)\b", text):
+        return "internship"
+    if "summer analyst" in text:
         return "internship"
     if any(_contains_alias(text, marker) for marker in new_grad_markers):
         return "new_grad"
@@ -105,7 +123,7 @@ def _academic_levels(text: str) -> list[AcademicLevel]:
         ("sophomore", ("sophomore", "second-year", "second year")),
         ("junior", ("junior", "third-year", "third year")),
         ("senior", ("senior year", "college senior", "final year", "rising senior")),
-        ("undergraduate", ("undergraduate", "bachelor", "b.s.", "bs degree", "ba degree")),
+        ("undergraduate", ("undergrad", "undergraduate", "bachelor", "b.s.", "bs degree", "ba degree")),
         ("masters", ("master's", "masters", "m.s.", "ms degree", "mba")),
         ("phd", ("phd", "ph.d", "doctorate", "doctoral")),
         ("new_grad", ("new grad", "new graduate", "recent graduate")),
@@ -119,7 +137,7 @@ def _academic_levels(text: str) -> list[AcademicLevel]:
 def _degree_requirements(text: str) -> list[str]:
     requirements: list[str] = []
     degree_patterns = [
-        ("bachelors", ("bachelor", "b.s.", "bs degree", "ba degree", "undergraduate degree")),
+        ("bachelors", ("bachelor", "b.s.", "bs degree", "ba degree", "undergrad", "undergraduate degree")),
         ("masters", ("master's", "masters", "m.s.", "ms degree", "mba")),
         ("phd", ("phd", "ph.d", "doctorate", "doctoral")),
     ]
@@ -138,15 +156,19 @@ def _grad_years(text: str) -> list[int]:
         start = int(f"20{match.group(1)}")
         end = int(f"20{match.group(2)}")
         window = text[max(0, match.start() - 100) : match.end() + 100]
-        if start <= end and any(marker in window for marker in ("graduat", "class of", "degree", "student", "intern", "new grad")):
+        if start <= end and _has_student_year_context(window):
             years.update(range(start, end + 1))
 
     for match in re.finditer(r"\b20(2[4-9]|3[0-5])\b", text):
         year = int(match.group(0))
         window = text[max(0, match.start() - 80) : match.end() + 80]
-        if any(marker in window for marker in ("graduat", "class of", "degree", "student", "intern", "new grad")):
+        if _has_student_year_context(window):
             years.add(year)
     return sorted(years)
+
+
+def _has_student_year_context(text: str) -> bool:
+    return any(marker in text for marker in STUDENT_YEAR_CONTEXT_MARKERS)
 
 
 def _visa_status(text: str) -> VisaStatus:

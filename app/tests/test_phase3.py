@@ -15,7 +15,7 @@ from app.normalizers.cleaner import clean_description
 from app.normalizers.ollama import normalize_with_ollama
 from app.normalizers.pipeline import normalize_jobs
 from app.normalizers.relevance import is_cs_relevant_job
-from app.tasks import extract_and_normalize_source, normalize_jobs_task
+from app.tasks import extract_and_normalize_source, extract_normalize_import_source, normalize_jobs_task
 
 
 def sample_job(**overrides: object) -> JobListing:
@@ -92,6 +92,36 @@ class Phase3Tests(unittest.TestCase):
         self.assertEqual(normalization.visa_sponsorship, True)
         self.assertEqual(normalization.remote_type, "hybrid")
 
+    def test_normalize_jobs_labels_plural_undergrad_internships(self) -> None:
+        job = sample_job(
+            company_name="Apple",
+            job_title="Software Undergrad Engineering Internships",
+            raw_description=(
+                "Apple software engineering internships for undergrad students. "
+                "Candidates should be pursuing a BS in Computer Science."
+            ),
+            description_html=None,
+            employment_type="PIPE",
+            departments=["Software and Services"],
+        )
+        result = normalize_jobs([job], use_ollama=False)
+        normalization = result.records[0].normalization
+
+        self.assertEqual(normalization.program_type, "internship")
+        self.assertIn("undergraduate", normalization.academic_levels)
+        self.assertIn("bachelors", normalization.degree_requirements)
+
+    def test_normalize_jobs_extracts_student_years_2026_through_2030(self) -> None:
+        job = sample_job(
+            job_title="Software Engineering Internship - Class of 2026, 2027, 2028, 2029 or 2030",
+            raw_description="Open to undergrad students graduating in 2026 through 2030.",
+            description_html=None,
+            employment_type="Internship",
+        )
+        result = normalize_jobs([job], use_ollama=False)
+
+        self.assertEqual(result.records[0].normalization.required_grad_years, [2026, 2027, 2028, 2029, 2030])
+
     def test_normalize_jobs_dedupes_by_content_hash(self) -> None:
         result = normalize_jobs([sample_job(), sample_job()], use_ollama=False)
 
@@ -151,6 +181,14 @@ class Phase3Tests(unittest.TestCase):
                 departments=["Data Science"],
                 required_skills=["sql"],
                 description="Analyze product telemetry.",
+            )
+        )
+        self.assertTrue(
+            is_cs_relevant_job(
+                title="Quantitative Researcher",
+                departments=["Quantitative Research"],
+                required_skills=[],
+                description="Research statistical models, market microstructure, and alpha signals.",
             )
         )
         self.assertTrue(
@@ -335,6 +373,37 @@ class Phase3Tests(unittest.TestCase):
 
         self.assertIsNone(result["failure"])
         self.assertEqual(result["normalization"]["normalized_job_count"], 1)
+
+    def test_celery_extract_normalize_import_task_writes_database(self) -> None:
+        normalization = normalize_jobs([sample_job()], use_ollama=False).model_dump(mode="json")
+        fake_pipeline_result = {
+            "source": {"source_url": "https://example.com/jobs", "status": "success", "job_count": 1},
+            "failure": None,
+            "normalization": normalization,
+        }
+
+        class FakeSummary:
+            def to_dict(self) -> dict[str, int]:
+                return {
+                    "records_read": 1,
+                    "companies_inserted": 0,
+                    "jobs_inserted": 1,
+                    "jobs_updated": 0,
+                    "skipped": 0,
+                    "failed": 0,
+                }
+
+        with (
+            patch("app.tasks.extract_and_normalize_source.run", return_value=fake_pipeline_result),
+            patch("app.tasks.SessionLocal") as session_factory,
+            patch("app.tasks.import_result", return_value=FakeSummary()) as import_result_mock,
+        ):
+            session_factory.return_value.__enter__.return_value = object()
+            result = extract_normalize_import_source.run("https://example.com/jobs")
+
+        self.assertIsNone(result["failure"])
+        self.assertEqual(result["import"]["jobs_inserted"], 1)
+        import_result_mock.assert_called_once()
 
 
 if __name__ == "__main__":

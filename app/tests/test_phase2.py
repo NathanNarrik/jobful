@@ -17,7 +17,7 @@ from app.proxy import ProxyPool
 from app.queueing import QueueName, choose_queue, get_backoff_delay
 from app.router import AtsRouter
 from app.sources import DEFAULT_CAREER_URLS
-from app.tasks import record_dead_letter
+from app.tasks import enqueue_urls, record_dead_letter
 
 
 class Phase2Tests(unittest.TestCase):
@@ -290,6 +290,18 @@ class Phase2Tests(unittest.TestCase):
         self.assertIn('"mode": "dry_run"', completed.stdout)
         self.assertIn('"queue": "jobful:high"', completed.stdout)
         self.assertIn('"queue": "jobful:slow"', completed.stdout)
+
+    def test_enqueue_urls_defaults_to_importing_refreshes(self) -> None:
+        with (
+            patch("app.tasks._redis_client", return_value=None),
+            patch("app.tasks.extract_normalize_import_source.apply_async") as import_task,
+        ):
+            import_task.return_value.id = "task-123"
+            result = enqueue_urls.run(["https://boards.greenhouse.io/airbnb"], use_locks=False)
+
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["items"][0]["task"], "jobful.extract_normalize_import_source")
+        import_task.assert_called_once()
 
     def test_record_dead_letter_writes_jsonl(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

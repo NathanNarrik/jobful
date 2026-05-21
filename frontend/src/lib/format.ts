@@ -32,8 +32,8 @@ export function titleCase(value: string) {
 export function daysSince(value: string | null) {
   if (!value) return "Fresh";
   const date = new Date(value);
-  const diff = Date.now() - date.getTime();
-  const days = Math.max(0, Math.floor(diff / 86_400_000));
+  const days = calendarDayDiff(date, new Date());
+  if (days < 0) return days === -1 ? "Tomorrow" : `In ${Math.abs(days)} days`;
   if (days === 0) return "Today";
   if (days === 1) return "1 day";
   return `${days} days`;
@@ -43,7 +43,24 @@ export function daysSinceLabel(value: string | null) {
   const age = daysSince(value);
   if (age === "Fresh") return "Fresh posting";
   if (age === "Today") return "Posted today";
+  if (age === "Tomorrow") return "Posts tomorrow";
+  if (age.startsWith("In ")) return `Posts ${age.toLowerCase()}`;
   return `Posted ${age} ago`;
+}
+
+export function compactPostedAge(value: string | null) {
+  const age = daysSince(value);
+  if (age === "Fresh") return "Fresh";
+  if (age === "Today") return "Today";
+  if (age === "Tomorrow") return "Tomorrow";
+  if (age.startsWith("In ")) return age;
+  return `${age} ago`;
+}
+
+function calendarDayDiff(from: Date, to: Date) {
+  const fromDay = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
+  const toDay = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime();
+  return Math.round((toDay - fromDay) / 86_400_000);
 }
 
 export function shortDate(value: string | null) {

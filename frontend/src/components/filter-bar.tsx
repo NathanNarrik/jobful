@@ -30,7 +30,7 @@ const countries = [
 export function FilterBar() {
   const { filters, setFilter, loadJobs, popularSkills } = useDiscoveryStore();
   const [openFilter, setOpenFilter] = useState<string | null>(null);
-  const searchTimeout = useRef<number | null>(null);
+  const searchInput = useRef<HTMLInputElement | null>(null);
   const skillOptions = useMemo(() => popularSkills.map((skill) => skill.skill), [popularSkills]);
 
   useEffect(() => {
@@ -42,22 +42,12 @@ export function FilterBar() {
     return () => window.removeEventListener("click", closeDropdown);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (searchTimeout.current) {
-        window.clearTimeout(searchTimeout.current);
-      }
-    };
-  }, []);
-
-  function updateSearch(value: string) {
-    if (searchTimeout.current) {
-      window.clearTimeout(searchTimeout.current);
-    }
-    searchTimeout.current = window.setTimeout(() => {
+  function commitSearch() {
+    const value = searchInput.current?.value.trim() ?? "";
+    if (value !== filters.search) {
       setFilter("search", value);
       void loadJobs(0);
-    }, 300);
+    }
   }
 
   function updateFilter(key: keyof typeof filters, value: string) {
@@ -66,8 +56,8 @@ export function FilterBar() {
   }
 
   function clearFilters() {
-    if (searchTimeout.current) {
-      window.clearTimeout(searchTimeout.current);
+    if (searchInput.current) {
+      searchInput.current.value = "";
     }
     for (const key of Object.keys(filters) as (keyof typeof filters)[]) {
       setFilter(key, "");
@@ -86,11 +76,27 @@ export function FilterBar() {
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
           <input
             key={filters.search}
+            ref={searchInput}
             defaultValue={filters.search}
-            onChange={(event) => updateSearch(event.target.value)}
+            onBlur={commitSearch}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+                commitSearch();
+              }
+            }}
             placeholder="Search title or company"
-            className="focus-ring h-10 w-full min-w-0 rounded-lg border border-[var(--line)] bg-[var(--surface)] pl-9 pr-3 text-sm shadow-sm outline-none focus:border-[var(--accent)]"
+            className="focus-ring h-10 w-full min-w-0 rounded-lg border border-[var(--line)] bg-[var(--surface)] pl-9 pr-12 text-sm shadow-sm outline-none focus:border-[var(--accent)]"
           />
+          <button
+            type="button"
+            className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[var(--muted)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
+            aria-label="Search"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={commitSearch}
+          >
+            <Search size={14} />
+          </button>
         </label>
         <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-3 2xl:grid-cols-6">
           <Dropdown
@@ -166,7 +172,7 @@ export function FilterBar() {
       <div className="mt-2 flex items-center justify-between gap-2 px-0.5 text-xs text-[var(--muted)]">
         <div className="flex items-center gap-2">
           <SlidersHorizontal size={14} />
-          <span>Instant filters refetch the feed. Search is debounced.</span>
+          <span>Filters refetch instantly. Search runs when you press Enter, click search, or leave the field.</span>
         </div>
         <span className="font-medium">{activeFilterCount} active</span>
       </div>

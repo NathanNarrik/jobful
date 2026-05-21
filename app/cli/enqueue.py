@@ -36,6 +36,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Bypass Redis enqueue locks and submit duplicate URLs again.",
     )
+    parser.add_argument(
+        "--no-import",
+        action="store_true",
+        help="Only extract sources. By default queued refreshes normalize and import into the database.",
+    )
+    parser.add_argument(
+        "--ollama",
+        action="store_true",
+        help="Use Ollama during queued normalization. Disabled by default for faster recurring refreshes.",
+    )
     return parser.parse_args()
 
 
@@ -59,6 +69,8 @@ def main() -> int:
             target_queue=args.queue,
             timeout_seconds=args.timeout,
             use_locks=not args.no_locks,
+            import_to_db=not args.no_import,
+            use_ollama=args.ollama,
         )
         summaries.append({"task": "enqueue_default_sources", "task_id": result.id})
 
@@ -68,6 +80,8 @@ def main() -> int:
             target_queue=args.queue,
             timeout_seconds=args.timeout,
             use_locks=not args.no_locks,
+            import_to_db=not args.no_import,
+            use_ollama=args.ollama,
         )
         summaries.append({"task": "enqueue_urls", "task_id": result.id})
 

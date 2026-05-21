@@ -3,7 +3,7 @@
 import { Bookmark, Clock, ExternalLink, GraduationCap, MapPin } from "lucide-react";
 import type { JobListItem } from "@/types";
 import { Badge } from "@/components/badge";
-import { compactLocation, companyInitials, daysSince, titleCase } from "@/lib/format";
+import { compactLocation, companyInitials, compactPostedAge, titleCase } from "@/lib/format";
 import { useApplicationStore } from "@/stores/application-store";
 import { useDiscoveryStore } from "@/stores/discovery-store";
 
@@ -43,7 +43,7 @@ export function JobCard({ job }: { job: JobListItem }) {
         </div>
         <div className="flex items-center gap-1.5">
           <Clock size={14} />
-          <span>{daysSince(job.date_posted ?? job.last_seen_at)} since posted</span>
+          <span>{compactPostedAge(job.date_posted ?? job.last_seen_at)}</span>
         </div>
       </div>
 
