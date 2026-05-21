@@ -12,7 +12,13 @@ from celery.exceptions import MaxRetriesExceededError
 from celery_app import REDIS_URL
 from celery_app import celery_app
 from app.cli.extract import dedupe_urls, extract_single_url
+from app.events.db.import_events import import_events
+from app.events.db.session import EventsSessionLocal
+from app.events.extract import extract_single_event_source
+from app.events.sources import DEFAULT_EVENT_SOURCES
 from app.models import JobListing
+from app.models import EventSourceConfig
+from app.models import RecruitingEventListing
 from app.normalizers.pipeline import normalize_jobs
 from app.queueing import QueueName, choose_queue, get_backoff_delay
 from app.sources import DEFAULT_CAREER_URLS
@@ -161,6 +167,84 @@ def enqueue_default_sources(
         timeout_seconds=timeout_seconds,
         use_locks=use_locks,
     )
+
+
+@celery_app.task(bind=True, name="jobful.extract_event_source", max_retries=3)
+def extract_event_source(
+    self: Any,
+    source_payload: dict[str, Any],
+    timeout_seconds: float = 10.0,
+) -> dict[str, Any]:
+    source = EventSourceConfig.model_validate(source_payload)
+    events, failure, source_result = extract_single_event_source(source, timeout_seconds)
+
+    if failure and failure.error_type in RETRYABLE_ERRORS:
+        try:
+            raise self.retry(countdown=get_backoff_delay(self.request.retries + 1))
+        except MaxRetriesExceededError:
+            record_dead_letter.apply_async(
+                args=[failure.model_dump(mode="json")],
+                queue=QueueName.DEAD_LETTER.value,
+                routing_key=QueueName.DEAD_LETTER.value,
+            )
+
+    return {
+        "source": source_result.model_dump(mode="json"),
+        "events": [event.model_dump(mode="json") for event in events],
+        "failure": failure.model_dump(mode="json") if failure else None,
+    }
+
+
+@celery_app.task(name="jobful.extract_and_import_event_source")
+def extract_and_import_event_source(
+    source_payload: dict[str, Any],
+    timeout_seconds: float = 10.0,
+) -> dict[str, Any]:
+    source = EventSourceConfig.model_validate(source_payload)
+    extraction = extract_event_source.run(source.model_dump(mode="json"), timeout_seconds)
+    if extraction["failure"] is not None:
+        return {
+            "source": extraction["source"],
+            "failure": extraction["failure"],
+            "import": None,
+        }
+
+    with EventsSessionLocal() as session:
+        events = [RecruitingEventListing.model_validate(item) for item in extraction["events"]]
+        summary = import_events(session, events, source)
+
+    return {
+        "source": extraction["source"],
+        "failure": None,
+        "import": summary.to_dict(),
+    }
+
+
+@celery_app.task(name="jobful.enqueue_default_event_sources")
+def enqueue_default_event_sources(
+    *,
+    timeout_seconds: float = 10.0,
+) -> dict[str, Any]:
+    enqueued: list[dict[str, str]] = []
+    for source in DEFAULT_EVENT_SOURCES:
+        async_result = extract_and_import_event_source.apply_async(
+            args=[source.model_dump(mode="json"), timeout_seconds],
+            queue=QueueName.STANDARD.value,
+            routing_key=QueueName.STANDARD.value,
+        )
+        enqueued.append(
+            {
+                "source_url": str(source.event_page_url),
+                "firm_name": source.firm_name,
+                "task_id": async_result.id,
+            }
+        )
+
+    return {
+        "enqueued_at": datetime.now(UTC).isoformat(),
+        "count": len(enqueued),
+        "items": enqueued,
+    }
 
 
 @celery_app.task(name="jobful.record_dead_letter")

@@ -2,7 +2,10 @@ import type {
   ApplicationRecord,
   ApplicationStatus,
   CompanySummary,
+  EventDetail,
+  EventSourceSummary,
   JobDetail,
+  PaginatedEventsResponse,
   PaginatedJobsResponse,
   SkillCount,
 } from "@/types";
@@ -40,6 +43,18 @@ export function listJobs(query: RequestOptions["query"]) {
 
 export function getJob(jobId: string) {
   return apiFetch<JobDetail>(`/jobs/${jobId}`);
+}
+
+export function listEvents(query: RequestOptions["query"]) {
+  return apiFetch<PaginatedEventsResponse>("/events", { query });
+}
+
+export function getEvent(eventId: string) {
+  return apiFetch<EventDetail>(`/events/${eventId}`);
+}
+
+export function listEventSources() {
+  return apiFetch<EventSourceSummary[]>("/event-sources");
 }
 
 export function listPopularSkills(limit = 18) {

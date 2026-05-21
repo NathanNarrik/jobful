@@ -55,6 +55,59 @@ class PaginatedJobsResponse(BaseModel):
     offset: int
 
 
+class EventListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    firm_name: str
+    firm_kind: str
+    event_title: str
+    event_url: str
+    registration_url: str | None
+    event_type: str
+    audience_tags: list[str]
+    location: list[str]
+    location_type: str
+    starts_at: datetime
+    ends_at: datetime | None
+    timezone: str | None
+    last_seen_at: datetime
+
+
+class EventDetail(EventListItem):
+    source_id: UUID | None
+    source_provider: str
+    source_event_id: str | None
+    description: str | None
+    raw_payload: dict[str, Any] | None
+    first_seen_at: datetime
+    is_active: bool
+
+
+class PaginatedEventsResponse(BaseModel):
+    items: list[EventListItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class EventSourceSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    firm_name: str
+    firm_kind: str
+    source_url: str
+    source_provider: str
+    is_active: bool
+    last_scraped_at: datetime | None
+    last_success_at: datetime | None
+    last_error_type: str | None
+    last_error_message: str | None
+    event_count: int = 0
+    active_event_count: int = 0
+
+
 class CompanySummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,6 +141,7 @@ class StatsSummary(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     database: str
+    events_database: str = "not_configured"
 
 
 ApplicationStatus = Literal[
