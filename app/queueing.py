@@ -23,6 +23,7 @@ HIGH_PRIORITY_COMPANY_MARKERS = {
     "datadog",
     "doordash",
     "google",
+    "janestreet",
     "linkedin",
     "meta",
     "microsoft",
@@ -33,6 +34,8 @@ HIGH_PRIORITY_COMPANY_MARKERS = {
     "pinterest",
     "roblox",
     "salesforce",
+    "snowflake",
+    "spacex",
     "stripe",
     "waymo",
 }

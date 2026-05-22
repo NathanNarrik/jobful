@@ -4,8 +4,11 @@ import os
 
 from kombu import Exchange, Queue
 
+from app.env import load_local_env
 from app.queueing import QueueName
 
+
+load_local_env()
 
 task_serializer = "json"
 result_serializer = "json"
@@ -55,23 +58,23 @@ def _schedule_seconds(env_name: str, default: int) -> int:
 
 
 beat_schedule = {
-    "enqueue-high-priority-every-fifteen-minutes": {
+    "enqueue-high-priority-every-two-minutes": {
         "task": "jobful.enqueue_default_sources",
-        "schedule": _schedule_seconds("JOBFUL_BEAT_HIGH_SECONDS", 15 * 60),
+        "schedule": _schedule_seconds("JOBFUL_BEAT_HIGH_SECONDS", 2 * 60),
         "kwargs": {"target_queue": QueueName.HIGH.value},
     },
-    "enqueue-standard-every-thirty-minutes": {
+    "enqueue-standard-every-five-minutes": {
         "task": "jobful.enqueue_default_sources",
-        "schedule": _schedule_seconds("JOBFUL_BEAT_STANDARD_SECONDS", 30 * 60),
+        "schedule": _schedule_seconds("JOBFUL_BEAT_STANDARD_SECONDS", 5 * 60),
         "kwargs": {"target_queue": QueueName.STANDARD.value},
     },
-    "enqueue-slow-every-thirty-minutes": {
+    "enqueue-slow-every-ten-minutes": {
         "task": "jobful.enqueue_default_sources",
-        "schedule": _schedule_seconds("JOBFUL_BEAT_SLOW_SECONDS", 30 * 60),
+        "schedule": _schedule_seconds("JOBFUL_BEAT_SLOW_SECONDS", 10 * 60),
         "kwargs": {"target_queue": QueueName.SLOW.value},
     },
-    "mark-stale-jobs-every-thirty-minutes": {
+    "mark-stale-jobs-every-ten-minutes": {
         "task": "jobful.mark_stale_jobs",
-        "schedule": _schedule_seconds("JOBFUL_BEAT_STALE_SECONDS", 30 * 60),
+        "schedule": _schedule_seconds("JOBFUL_BEAT_STALE_SECONDS", 10 * 60),
     },
 }

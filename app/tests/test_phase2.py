@@ -24,6 +24,9 @@ class Phase2Tests(unittest.TestCase):
     def test_choose_queue_classifies_priority_sources(self) -> None:
         self.assertEqual(choose_queue("https://www.amazon.jobs/en/").queue, QueueName.HIGH)
         self.assertEqual(choose_queue("https://jobs.lever.co/palantir").queue, QueueName.HIGH)
+        self.assertEqual(choose_queue("https://boards.greenhouse.io/janestreet").queue, QueueName.HIGH)
+        self.assertEqual(choose_queue("https://jobs.ashbyhq.com/snowflake").queue, QueueName.HIGH)
+        self.assertEqual(choose_queue("https://boards.greenhouse.io/spacex").queue, QueueName.HIGH)
         self.assertEqual(
             choose_queue("https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite").queue,
             QueueName.HIGH,

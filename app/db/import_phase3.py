@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,6 +17,10 @@ from app.db.engine import create_jobful_engine
 from app.db.models import Base, Company, Job, utc_now
 from app.models import NormalizationResult, NormalizedJobRecord
 from app.normalizers.relevance import is_cs_relevant_job, is_cs_relevant_record
+from app.notifications.job_alerts import send_new_job_alerts
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,7 @@ def import_result(session: Session, result: NormalizationResult) -> ImportSummar
         "skipped": 0,
         "failed": 0,
     }
+    inserted_records: list[NormalizedJobRecord] = []
 
     for record in result.records:
         try:
@@ -64,12 +70,14 @@ def import_result(session: Session, result: NormalizationResult) -> ImportSummar
             inserted_job = upsert_job(session, record, company)
             if inserted_job:
                 counters["jobs_inserted"] += 1
+                inserted_records.append(record)
             else:
                 counters["jobs_updated"] += 1
         except Exception:
             counters["failed"] += 1
 
     session.commit()
+    notify_new_jobs(inserted_records)
     return ImportSummary(**counters)
 
 
@@ -206,6 +214,8 @@ def import_payload(session: Session, payload: dict[str, Any], *, batch_size: int
     session.commit()
     inserted = sum(1 for content_hash in content_hashes if content_hash not in existing_hashes)
     updated = len(content_hashes) - inserted
+    inserted_records = inserted_payload_records(records, existing_hashes)
+    notify_new_jobs(inserted_records)
     return ImportSummary(
         records_read=len(records),
         companies_inserted=companies_inserted,
@@ -314,6 +324,38 @@ def chunks(items: list[Any], size: int) -> list[list[Any]]:
     return [items[index : index + size] for index in range(0, len(items), size)]
 
 
+def inserted_payload_records(records: list[dict[str, Any]], existing_hashes: set[str]) -> list[NormalizedJobRecord]:
+    inserted_records: list[NormalizedJobRecord] = []
+    for record in records:
+        content_hash = record.get("job", {}).get("content_hash")
+        if not content_hash or content_hash in existing_hashes:
+            continue
+        try:
+            inserted_records.append(NormalizedJobRecord.model_validate(record))
+        except Exception:
+            logger.exception("Could not build notification payload for inserted job %s", content_hash)
+    return inserted_records
+
+
+def notify_new_jobs(records: list[NormalizedJobRecord]) -> None:
+    if not records:
+        return
+    try:
+        summary = send_new_job_alerts(records)
+        if summary.matched:
+            logger.info(
+                "Job alerts considered=%s matched=%s sent=%s skipped_unconfigured=%s skipped_disabled=%s failed=%s",
+                summary.considered,
+                summary.matched,
+                summary.sent,
+                summary.skipped_unconfigured,
+                summary.skipped_disabled,
+                summary.failed,
+            )
+    except Exception:
+        logger.exception("Failed while processing new job alerts")
+
+
 def import_result_postgres(session: Session, result: NormalizationResult) -> ImportSummary:
     if session.bind is None or session.bind.dialect.name != "postgresql":
         return import_result(session, result)
@@ -326,6 +368,7 @@ def import_result_postgres(session: Session, result: NormalizationResult) -> Imp
         "skipped": 0,
         "failed": 0,
     }
+    inserted_records: list[NormalizedJobRecord] = []
     for record in result.records:
         try:
             company, inserted_company = upsert_company(session, record)
@@ -353,9 +396,11 @@ def import_result_postgres(session: Session, result: NormalizationResult) -> Imp
                 counters["jobs_updated"] += int(result_proxy.rowcount or 0)
             elif result_proxy.rowcount == 1:
                 counters["jobs_inserted"] += 1
+                inserted_records.append(record)
         except Exception:
             counters["failed"] += 1
     session.commit()
+    notify_new_jobs(inserted_records)
     return ImportSummary(**counters)
 
 

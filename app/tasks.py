@@ -36,7 +36,7 @@ RETRYABLE_ERRORS = {
     "Timeout",
 }
 
-DEFAULT_REFRESH_LOCK_SECONDS = 30 * 60
+DEFAULT_REFRESH_LOCK_SECONDS = 2 * 60
 
 DEAD_LETTER_REDIS_KEY = "jobful:dead_letters"
 DEFAULT_DEAD_LETTER_PATH = Path("outputs/dead_letters.jsonl")

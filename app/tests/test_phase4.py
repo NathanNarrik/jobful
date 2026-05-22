@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -14,6 +16,7 @@ from app.db.import_phase3 import import_result
 from app.db.models import Base, Company, Job, UserApplication
 from app.events.db.models import EventBase
 from app.models import JobListing, JobNormalization, NormalizationResult, NormalizedJobRecord
+from app.notifications.job_alerts import send_new_job_alerts, should_alert_for_record
 
 
 def sample_record(**job_overrides: object) -> NormalizedJobRecord:
@@ -72,6 +75,8 @@ def sample_result(records: list[NormalizedJobRecord] | None = None) -> Normaliza
 
 class Phase4Tests(unittest.TestCase):
     def setUp(self) -> None:
+        self.email_alert_env = patch.dict(os.environ, {"JOBFUL_EMAIL_ALERTS_ENABLED": "false"}, clear=False)
+        self.email_alert_env.start()
         self.engine = create_engine(
             "sqlite+pysqlite://",
             future=True,
@@ -92,6 +97,7 @@ class Phase4Tests(unittest.TestCase):
 
     def tearDown(self) -> None:
         app.dependency_overrides.clear()
+        self.email_alert_env.stop()
         self.engine.dispose()
 
     def test_model_creation_imports_phase3_records(self) -> None:
@@ -116,6 +122,80 @@ class Phase4Tests(unittest.TestCase):
             self.assertEqual(second_summary.jobs_updated, 1)
             self.assertEqual(session.scalar(select(Job).where(Job.content_hash == "b" * 64)).job_title, "Updated Internship")
             self.assertEqual(session.scalar(select(Company).where(Company.name == "ExampleCo")).name, "ExampleCo")
+
+    def test_import_alerts_for_new_jobs_only_once(self) -> None:
+        apple = sample_record(company_name="Apple", content_hash="a" * 64)
+
+        with Session(self.engine) as session:
+            with patch("app.db.import_phase3.send_new_job_alerts") as alerts:
+                first_summary = import_result(session, sample_result([apple]))
+                second_summary = import_result(session, sample_result([apple]))
+
+        self.assertEqual(first_summary.jobs_inserted, 1)
+        self.assertEqual(second_summary.jobs_updated, 1)
+        self.assertEqual(alerts.call_count, 1)
+        self.assertEqual(alerts.call_args.args[0][0].job.company_name, "Apple")
+
+    def test_import_passes_all_inserted_records_to_alert_filter(self) -> None:
+        microsoft_full_time = sample_record(
+            company_name="Microsoft",
+            job_title="Software Engineer",
+            employment_type="Full-time",
+            content_hash="m" * 64,
+        )
+        microsoft_full_time.normalization.program_type = "experienced"
+        example_intern = sample_record(company_name="ExampleCo", content_hash="e" * 64)
+
+        with Session(self.engine) as session:
+            with patch("app.db.import_phase3.send_new_job_alerts") as alerts:
+                import_result(session, sample_result([microsoft_full_time, example_intern]))
+
+        alerts.assert_called_once()
+        self.assertEqual(alerts.call_args.args[0], [microsoft_full_time, example_intern])
+
+    def test_new_job_alert_filter_matches_recent_cs_jobs_only(self) -> None:
+        recent_cs = sample_record(company_name="Apple", date_posted=datetime.now(UTC))
+        old_cs = sample_record(
+            company_name="Google",
+            date_posted=datetime.now(UTC) - timedelta(days=7),
+            content_hash="o" * 64,
+        )
+        unknown_posted = sample_record(company_name="Meta", date_posted=None, content_hash="u" * 64)
+        non_cs = sample_record(
+            company_name="Datadog",
+            job_title="Account Executive",
+            employment_type="Full-time",
+            raw_description="Own enterprise sales and customer relationships.",
+            departments=["Sales"],
+            content_hash="d" * 64,
+            date_posted=datetime.now(UTC),
+        )
+        non_cs.cleaned_description = "Own enterprise sales and customer relationships."
+        non_cs.normalization.program_type = "experienced"
+        non_cs.normalization.required_skills = []
+        non_cs.normalization.nice_to_have_skills = []
+
+        self.assertTrue(should_alert_for_record(recent_cs))
+        self.assertFalse(should_alert_for_record(old_cs))
+        self.assertFalse(should_alert_for_record(unknown_posted))
+        self.assertFalse(should_alert_for_record(non_cs))
+
+    def test_new_job_alerts_send_one_email_for_batch(self) -> None:
+        first = sample_record(company_name="Google", content_hash="1" * 64, date_posted=datetime.now(UTC))
+        second = sample_record(company_name="Microsoft", content_hash="2" * 64, date_posted=datetime.now(UTC))
+
+        with (
+            patch.dict(os.environ, {"JOBFUL_EMAIL_ALERTS_ENABLED": "true"}, clear=False),
+            patch("app.notifications.job_alerts.EmailConfig.from_env") as config_factory,
+            patch("app.notifications.job_alerts.send_email") as send_email,
+        ):
+            config = config_factory.return_value
+            config.is_configured = True
+            summary = send_new_job_alerts([first, second])
+
+        self.assertEqual(summary.sent, 2)
+        send_email.assert_called_once()
+        self.assertIn("2 new CS jobs", send_email.call_args.args[0])
 
     def test_import_marks_non_cs_jobs_inactive(self) -> None:
         non_cs = sample_record(

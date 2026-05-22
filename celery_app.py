@@ -4,6 +4,10 @@ import os
 
 from celery import Celery
 
+from app.env import load_local_env
+
+
+load_local_env()
 
 REDIS_URL = os.getenv("JOBFUL_REDIS_URL", "redis://localhost:6379/0")
 RESULT_BACKEND = os.getenv("JOBFUL_CELERY_RESULT_BACKEND", REDIS_URL)
