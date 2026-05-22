@@ -12,11 +12,39 @@ from sqlalchemy.pool import StaticPool
 from app.api.deps import get_db, get_events_db
 from app.api.main import app
 from app.db.models import Base
-from app.events.db.import_events import import_events
-from app.events.db.models import EventBase, RecruitingEvent
+from app.events.db.import_events import import_events, match_source_for_event
+from app.events.db.models import EventBase, EventSource, RecruitingEvent
 from app.events.extract import CompanyEventPageExtractor
+from app.events.extract import classify_source_exception
 from app.events.extract import parse_date_and_time
 from app.models import EventSourceConfig, RecruitingEventListing
+
+
+class FakeResponse:
+    def __init__(self, *, text: str = "", payload: object | None = None, status_code: int = 200, content_type: str = "text/html") -> None:
+        self.text = text
+        self._payload = payload
+        self.status_code = status_code
+        self.headers = {"Content-Type": content_type}
+
+    def json(self) -> object:
+        return self._payload
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            import requests
+
+            error = requests.HTTPError(f"{self.status_code} Client Error")
+            error.response = self
+            raise error
+
+
+class FakeSession:
+    def __init__(self, response: FakeResponse) -> None:
+        self.response = response
+
+    def get(self, *args: object, **kwargs: object) -> FakeResponse:
+        return self.response
 
 
 def sample_source() -> EventSourceConfig:
@@ -212,6 +240,174 @@ END:VCALENDAR
         self.assertIsNotNone(events[0].ends_at)
         self.assertGreater(events[0].ends_at, events[0].starts_at)
         self.assertIn("students", events[0].audience_tags)
+
+    def test_morgan_stanley_event_json_extracts_future_events(self) -> None:
+        source = EventSourceConfig(
+            firm_name="Morgan Stanley",
+            firm_kind="finance",
+            event_page_url="https://www.morganstanley.com/careers/events-aggregate",
+            source_provider="morgan_stanley_events",
+        )
+        payload = {
+            "status": 200,
+            "eventResults": [
+                {
+                    "eventId": "ms-1",
+                    "eventTitle": "2026 Technology Early Careers Webinar",
+                    "eventStartDate": "Wednesday, September 09, 2026",
+                    "eventEndDate": "Wednesday, September 09, 2026",
+                    "eventTime": "03:00 PM GMT",
+                    "eventDetailUrl": "/careers/events/technology-webinar",
+                    "eventType": "Webinar",
+                    "eventCountry": "Virtual",
+                    "eventHtmlDescription": "<p>Student recruiting webinar for engineers.</p>",
+                }
+            ],
+        }
+        extractor = CompanyEventPageExtractor(source, session=FakeSession(FakeResponse(payload=payload)))
+        events = extractor._extract_morgan_stanley_events()
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].firm_name, "Morgan Stanley")
+        self.assertEqual(events[0].event_type, "webinar")
+        self.assertEqual(events[0].starts_at, datetime(2026, 9, 9, 15, 0, tzinfo=UTC))
+
+    def test_nvidia_university_json_extracts_events(self) -> None:
+        source = EventSourceConfig(
+            firm_name="NVIDIA",
+            firm_kind="technology",
+            event_page_url="https://www.nvidia.com/en-us/about-nvidia/careers/university-recruiting/events-calendar/",
+            source_provider="nvidia_university_events",
+        )
+        payload = [
+            {
+                "title": "Grace Hopper Career Fair",
+                "startDate": "2026-09-18",
+                "endDate": "2026-09-19",
+                "location": "Virtual",
+                "url": "https://example.com/nvidia-ghc",
+                "venue": "Online",
+            }
+        ]
+        extractor = CompanyEventPageExtractor(source, session=FakeSession(FakeResponse(payload=payload)))
+        events = extractor._extract_nvidia_university_events()
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].event_title, "Grace Hopper Career Fair")
+        self.assertEqual(events[0].event_type, "career_fair")
+        self.assertIn("students", events[0].audience_tags)
+
+    def test_eightfold_embedded_event_data_extracts_registration_event(self) -> None:
+        source = EventSourceConfig(
+            firm_name="Northrop Grumman",
+            firm_kind="industrial",
+            event_page_url="https://jobs.northropgrumman.com/events/candidate/registration?plannedEventId=abc",
+            source_provider="eightfold_events",
+        )
+        html = """
+        <script>
+        window.__DATA__ = {"eventData": {
+          "name": "Military and Veteran Virtual Information Session",
+          "plannedEventEncId": "abc",
+          "eventLandingURL": "https://jobs.northropgrumman.com/events/candidate/registration?plannedEventId=abc",
+          "eventLocationType": "virtual_event",
+          "selectedTimezone": "America/New_York",
+          "startTimestamp": 1779307200,
+          "endTimestamp": 1779312600,
+          "description": "<p>Recruiting session for military candidates.</p>"
+        }};
+        </script>
+        """
+        extractor = CompanyEventPageExtractor(source, session=FakeSession(FakeResponse(text=html)))
+        events = extractor._extract_eightfold_events()
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].location_type, "virtual")
+        self.assertEqual(events[0].source_event_id, "abc")
+        self.assertEqual(str(events[0].registration_url), "https://jobs.northropgrumman.com/events/candidate/registration?plannedEventId=abc")
+
+    def test_public_university_event_page_maps_major_tech_aliases(self) -> None:
+        source = EventSourceConfig(
+            firm_name="Public Campus Events",
+            firm_kind="other",
+            event_page_url="https://example.edu/events",
+            source_scope="university_calendar",
+        )
+        html = """
+        <article class="event">
+          <h2>Amazon Student Programs Career Corner</h2>
+          <time datetime="2026-08-23T17:00:00Z"></time>
+          <p>Join AWS recruiters for an internship info session on campus.</p>
+          <a href="/events/amazon">Register</a>
+        </article>
+        <article class="event">
+          <h2>Gear Up for Meta University</h2>
+          <time datetime="2026-09-10T19:00:00Z"></time>
+          <p>Meta recruiting event for first-year and second-year students.</p>
+        </article>
+        <article class="event">
+          <h2>Employer Spotlight - Apple</h2>
+          <time datetime="2026-10-01T16:00:00Z"></time>
+          <p>Meet Apple Retail recruiters and learn about student careers.</p>
+        </article>
+        """
+        extractor = CompanyEventPageExtractor(source)
+        events = extractor._extract_public_recruiting_cards(BeautifulSoup(html, "html.parser"))
+
+        self.assertEqual([event.firm_name for event in events], ["Amazon", "Meta", "Apple"])
+        self.assertTrue(all(event.firm_kind == "technology" for event in events))
+
+    def test_handshake_auth_required_is_source_status_not_failure(self) -> None:
+        source = EventSourceConfig(
+            firm_name="Meta",
+            firm_kind="technology",
+            event_page_url="https://app.joinhandshake.com/events/123",
+            source_scope="handshake_public",
+        )
+        error = FakeResponse(status_code=403)
+        try:
+            error.raise_for_status()
+        except Exception as exc:
+            status = classify_source_exception(source, exc)
+
+        self.assertEqual(status, "auth-required")
+
+    def test_empty_import_marks_source_status_empty(self) -> None:
+        with Session(self.engine) as session:
+            import_events(session, [], sample_source())
+            source_status = session.scalar(select(EventSource.source_status))
+
+        self.assertEqual(source_status, "empty")
+
+    def test_import_matches_events_to_same_host_source_before_same_firm_source(self) -> None:
+        hiring_source = EventSourceConfig(
+            firm_name="Amazon",
+            firm_kind="technology",
+            event_page_url="https://hiring.amazon.com/hiring-process/hiring-events",
+            source_provider="amazon_hiring_events",
+        )
+        campus_source = EventSourceConfig(
+            firm_name="Amazon",
+            firm_kind="technology",
+            event_page_url="https://studentaffairs.umbc.edu/news-events/events/event/152501/",
+            source_scope="university_calendar",
+        )
+        event = sample_event(
+            firm_name="Amazon",
+            firm_kind="technology",
+            event_url="https://studentaffairs.umbc.edu/news-events/events/event/152501/",
+            registration_url="https://studentaffairs.umbc.edu/news-events/events/event/152501/",
+            content_hash="a" * 64,
+            source_event_id="amazon-campus",
+        )
+
+        with Session(self.engine) as session:
+            import_events(session, [], hiring_source)
+            import_events(session, [], campus_source)
+            sources = session.execute(select(EventSource)).scalars().all()
+            matched = match_source_for_event({source.source_url: source for source in sources}, event)
+
+        self.assertEqual(matched.source_url, str(campus_source.event_page_url))
 
 
 if __name__ == "__main__":

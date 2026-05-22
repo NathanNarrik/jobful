@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ChevronDown, Search, X } from "lucide-react";
+import { CalendarDays, ChevronDown, History, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEventsStore } from "@/stores/events-store";
 
@@ -76,7 +76,7 @@ export function EventFilterBar() {
             <Search size={14} />
           </button>
         </label>
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
           <Dropdown id="firm" label="Firm" value={filters.firm} options={firms} openFilter={openFilter} setOpenFilter={setOpenFilter} onChange={(value) => updateFilter("firm", value)} />
           <Dropdown id="kind" label="Kind" value={filters.firm_kind} options={firmKinds} openFilter={openFilter} setOpenFilter={setOpenFilter} onChange={(value) => updateFilter("firm_kind", value)} />
           <Dropdown id="type" label="Type" value={filters.event_type} options={eventTypes} openFilter={openFilter} setOpenFilter={setOpenFilter} onChange={(value) => updateFilter("event_type", value)} />
@@ -88,6 +88,18 @@ export function EventFilterBar() {
           >
             <CalendarDays size={15} />
             <span className="truncate">{filters.starts_after ? "All dates" : "Upcoming"}</span>
+          </button>
+          <button
+            type="button"
+            className={`flex h-10 min-w-0 items-center gap-2 rounded-lg border px-3 text-sm font-semibold hover:bg-[var(--surface-strong)] ${
+              filters.active_only === "false"
+                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                : "border-[var(--line)] bg-[var(--surface-soft)] text-[var(--muted-strong)]"
+            }`}
+            onClick={() => updateFilter("active_only", filters.active_only === "false" ? "true" : "false")}
+          >
+            <History size={15} />
+            <span className="truncate">{filters.active_only === "false" ? "Past shown" : "Active only"}</span>
           </button>
         </div>
         <button

@@ -105,6 +105,8 @@ FirmKind = Literal[
     "other",
 ]
 EventLocationType = Literal["virtual", "in_person", "hybrid", "unknown"]
+EventSourceScope = Literal["company_page", "university_calendar", "handshake_public", "provider_api", "candidate"]
+EventSourceStatus = Literal["productive", "empty", "blocked", "auth-required", "parser-needed", "inactive", "failed", "success"]
 
 
 class RecruitingEventListing(BaseModel):
@@ -149,6 +151,8 @@ class EventSourceConfig(BaseModel):
     firm_kind: FirmKind = "other"
     event_page_url: HttpUrl
     source_provider: str = "company_events"
+    source_scope: EventSourceScope = "company_page"
+    firm_aliases: list[str] = Field(default_factory=list)
 
     @field_serializer("event_page_url")
     def serialize_event_page_url(self, event_page_url: HttpUrl) -> str:
@@ -177,7 +181,8 @@ class EventPullSourceResult(BaseModel):
     firm_name: str
     firm_kind: str
     source_provider: str
-    status: Literal["success", "failed"]
+    source_scope: EventSourceScope = "company_page"
+    status: EventSourceStatus
     event_count: int
     error_type: str | None = None
     message: str | None = None

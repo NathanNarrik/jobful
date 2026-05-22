@@ -72,6 +72,7 @@ class EventListItem(BaseModel):
     ends_at: datetime | None
     timezone: str | None
     last_seen_at: datetime
+    is_active: bool
 
 
 class EventDetail(EventListItem):
@@ -99,6 +100,8 @@ class EventSourceSummary(BaseModel):
     firm_kind: str
     source_url: str
     source_provider: str
+    source_scope: str = "company_page"
+    source_status: str = "productive"
     is_active: bool
     last_scraped_at: datetime | None
     last_success_at: datetime | None

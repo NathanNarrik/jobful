@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -52,6 +53,7 @@ def import_pull_result(session: Session, result: EventPullResult) -> EventImport
                 firm_kind=source_result.firm_kind,
                 event_page_url=source_result.source_url,
                 source_provider=source_result.source_provider,
+                source_scope=source_result.source_scope,
             ),
             status=source_result.status,
             error_type=source_result.error_type,
@@ -85,7 +87,7 @@ def import_pull_result(session: Session, result: EventPullResult) -> EventImport
 
 
 def import_events(session: Session, events: list[RecruitingEventListing], source: EventSourceConfig) -> EventImportSummary:
-    event_source, sources_inserted = upsert_event_source(session, source, status="success")
+    event_source, sources_inserted = upsert_event_source(session, source, status="productive" if events else "empty")
     inserted = 0
     updated = 0
     failed = 0
@@ -116,15 +118,18 @@ def upsert_event_source(
     error_message: str | None = None,
 ) -> tuple[EventSource, bool]:
     source_url = str(source.event_page_url)
+    status = normalize_source_status(status)
     existing = session.execute(select(EventSource).where(EventSource.source_url == source_url)).scalar_one_or_none()
     now = utc_now()
     if existing is not None:
         existing.firm_name = source.firm_name
         existing.firm_kind = source.firm_kind
         existing.source_provider = source.source_provider
-        existing.is_active = True
+        existing.source_scope = source.source_scope
+        existing.source_status = status
+        existing.is_active = status != "inactive"
         existing.last_scraped_at = now
-        if status == "success":
+        if status in {"productive", "empty", "parser-needed"}:
             existing.last_success_at = now
             existing.last_error_type = None
             existing.last_error_message = None
@@ -139,15 +144,21 @@ def upsert_event_source(
         firm_kind=source.firm_kind,
         source_url=source_url,
         source_provider=source.source_provider,
-        is_active=True,
+        source_scope=source.source_scope,
+        source_status=status,
+        is_active=status != "inactive",
         last_scraped_at=now,
-        last_success_at=now if status == "success" else None,
+        last_success_at=now if status in {"productive", "empty", "parser-needed"} else None,
         last_error_type=error_type,
         last_error_message=error_message,
     )
     session.add(event_source)
     session.flush()
     return event_source, True
+
+
+def normalize_source_status(status: str) -> str:
+    return "productive" if status == "success" else status
 
 
 def upsert_recruiting_event(session: Session, event: RecruitingEventListing, source: EventSource | None) -> bool:
@@ -219,6 +230,21 @@ def is_event_active(event: RecruitingEventListing) -> bool:
 
 
 def match_source_for_event(source_map: dict[str, EventSource], event: RecruitingEventListing) -> EventSource | None:
+    event_url = str(event.event_url)
+    registration_url = str(event.registration_url) if event.registration_url else ""
+    for source in source_map.values():
+        if source.source_url in {event_url, registration_url}:
+            return source
+    event_host = urlparse(event_url).hostname
+    for source in source_map.values():
+        source_host = urlparse(source.source_url).hostname
+        if (
+            source_host
+            and event_host == source_host
+            and source.firm_name == event.firm_name
+            and source.firm_kind == event.firm_kind
+        ):
+            return source
     for source in source_map.values():
         if source.firm_name == event.firm_name and source.firm_kind == event.firm_kind:
             return source

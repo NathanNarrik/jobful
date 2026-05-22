@@ -29,6 +29,7 @@ const initialFilters: EventFilters = {
   event_type: "",
   location_type: "",
   starts_after: "",
+  active_only: "true",
 };
 
 export const useEventsStore = create<EventsState>((set, get) => ({
@@ -58,6 +59,7 @@ export const useEventsStore = create<EventsState>((set, get) => ({
         event_type: filters.event_type,
         location_type: filters.location_type,
         starts_after: filters.starts_after,
+        active_only: filters.active_only,
       });
       set({ events: result.items, total: result.total, offset: result.offset, loading: false });
     } catch (error) {
