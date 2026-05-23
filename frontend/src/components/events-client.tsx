@@ -2,6 +2,7 @@
 
 import { CalendarDays, ChevronLeft, ChevronRight, Database, Sparkles, Zap } from "lucide-react";
 import { useEffect } from "react";
+import { Badge } from "@/components/badge";
 import { EventDetailDrawer } from "@/components/event-detail-drawer";
 import { EventFilterBar } from "@/components/event-filter-bar";
 import { EventRow } from "@/components/event-row";
@@ -23,6 +24,10 @@ export function EventsClient() {
   const canGoBack = offset > 0;
   const canGoNext = nextOffset < total;
   const sourceCount = sources.length;
+  const sourceStatusCounts = sources.reduce<Record<string, number>>((counts, source) => {
+    counts[source.source_status] = (counts[source.source_status] ?? 0) + 1;
+    return counts;
+  }, {});
 
   return (
     <main>
@@ -42,6 +47,16 @@ export function EventsClient() {
         <div className="mb-4">
           <EventFilterBar />
         </div>
+        {sources.length ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+            <span className="font-semibold text-[var(--muted-strong)]">Source health</span>
+            {Object.entries(sourceStatusCounts).map(([status, count]) => (
+              <Badge key={status} tone={sourceStatusTone(status)}>
+                {statusLabel(status)} {count}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
         <div className="mb-3 flex items-center justify-end gap-2">
           <button
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface)] shadow-sm transition hover:bg-[var(--surface-soft)] disabled:opacity-45"
@@ -84,6 +99,17 @@ export function EventsClient() {
       <EventDetailDrawer />
     </main>
   );
+}
+
+function statusLabel(status: string) {
+  return status.replace(/[-_]/g, " ");
+}
+
+function sourceStatusTone(status: string): React.ComponentProps<typeof Badge>["tone"] {
+  if (status === "productive") return "green";
+  if (status === "empty" || status === "parser-needed") return "amber";
+  if (status === "blocked" || status === "auth-required" || status === "failed") return "red";
+  return "neutral";
 }
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {

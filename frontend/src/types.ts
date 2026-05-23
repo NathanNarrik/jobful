@@ -59,6 +59,7 @@ export type EventListItem = {
   ends_at: string | null;
   timezone: string | null;
   last_seen_at: string;
+  is_active: boolean;
 };
 
 export type EventDetail = EventListItem & {
@@ -84,6 +85,8 @@ export type EventSourceSummary = {
   firm_kind: string;
   source_url: string;
   source_provider: string;
+  source_scope: string;
+  source_status: string;
   is_active: boolean;
   last_scraped_at: string | null;
   last_success_at: string | null;
@@ -149,4 +152,5 @@ export type EventFilters = {
   event_type: string;
   location_type: string;
   starts_after: string;
+  active_only: string;
 };

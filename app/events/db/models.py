@@ -29,6 +29,8 @@ class EventSource(EventBase):
     firm_kind: Mapped[str] = mapped_column(String(64), nullable=False)
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
     source_provider: Mapped[str] = mapped_column(String(64), nullable=False, default="company_events")
+    source_scope: Mapped[str] = mapped_column(String(64), nullable=False, default="company_page")
+    source_status: Mapped[str] = mapped_column(String(64), nullable=False, default="productive")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     last_scraped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
